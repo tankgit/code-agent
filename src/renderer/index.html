@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com;">
+  <title>Code Agent</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/default.min.css">
+  <link rel="stylesheet" href="styles.css">
+  <script>
+    // 确保 marked 和 hljs 在全局作用域
+    window.marked = null;
+    window.hljs = null;
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/marked@11.0.0/marked.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+</head>
+<body>
+  <!-- 工作目录选择界面 -->
+  <div id="workDirSelect" class="work-dir-select">
+    <div class="work-dir-content">
+      <h1>Code Agent</h1>
+      <p>请选择您的工作目录</p>
+      <button id="selectDirBtn" class="select-dir-btn">选择工作目录</button>
+    </div>
+  </div>
+
+  <!-- 主界面 -->
+  <div id="mainApp" class="main-app" style="display: none;">
+    <!-- 顶部工具栏 -->
+    <div class="top-bar">
+      <div class="work-dir-info">
+        <span id="workDirPath"></span>
+        <button id="changeDirBtn" class="change-dir-btn" title="重新选择工作目录">🔄 更换</button>
+      </div>
+      <button id="settingsBtn" class="settings-btn">⚙️ 设置</button>
+    </div>
+
+    <!-- 主内容区 -->
+    <div class="main-content">
+      <!-- 左侧会话列表 -->
+      <div class="sidebar">
+        <div class="sidebar-header">
+          <h3>会话列表</h3>
+          <button id="newSessionBtn" class="new-session-btn">+ 新建</button>
+        </div>
+        <div id="sessionList" class="session-list"></div>
+      </div>
+
+      <!-- 中间聊天区域 -->
+      <div class="chat-area">
+        <div class="context-progress">
+          <div class="progress-bar">
+            <div id="progressFill" class="progress-fill"></div>
+          </div>
+          <span id="progressText" class="progress-text">0 / 16384 tokens</span>
+        </div>
+        <div id="chatMessages" class="chat-messages"></div>
+        <div id="statusBar" class="status-bar" style="display: none;">
+          <div class="status-bar-content">
+            <span class="status-bar-icon"></span>
+            <span class="status-bar-text">准备中...</span>
+          </div>
+        </div>
+        <div class="chat-input-area">
+          <textarea id="chatInput" class="chat-input" placeholder="输入您的消息..."></textarea>
+          <button id="sendBtn" class="send-btn">发送</button>
+        </div>
+      </div>
+
+      <!-- 右侧Context面板 -->
+      <div class="context-panel">
+        <div class="context-header">
+          <h3>Context 环境</h3>
+        </div>
+        <div class="context-content">
+          <div class="context-card" data-module="thinking">
+            <div class="context-card-header">
+              <h4>🤔 AI思考</h4>
+              <span class="context-card-toggle">▼</span>
+            </div>
+            <div class="context-card-body">
+              <div id="thinkingContent" class="context-item"></div>
+            </div>
+          </div>
+          <div class="context-card" data-module="planning">
+            <div class="context-card-header">
+              <h4>📋 TODO列表</h4>
+              <span class="context-card-toggle">▼</span>
+            </div>
+            <div class="context-card-body">
+              <div id="todoContent" class="context-item"></div>
+            </div>
+          </div>
+          <div class="context-card" data-module="reflection">
+            <div class="context-card-header">
+              <h4>💭 反思过程</h4>
+              <span class="context-card-toggle">▼</span>
+            </div>
+            <div class="context-card-body">
+              <div id="reflectionContent" class="context-item"></div>
+            </div>
+          </div>
+          <div class="context-card" data-module="codePool">
+            <div class="context-card-header">
+              <h4>💻 代码环境池</h4>
+              <span class="context-card-toggle">▼</span>
+            </div>
+            <div class="context-card-body">
+              <div id="codePoolContent" class="context-item"></div>
+            </div>
+          </div>
+          <div class="context-card" data-module="memoPool">
+            <div class="context-card-header">
+              <h4>📝 备忘池</h4>
+              <span class="context-card-toggle">▼</span>
+            </div>
+            <div class="context-card-body">
+              <div id="memoPoolContent" class="context-item"></div>
+            </div>
+          </div>
+          <div class="context-card" data-module="operationPool">
+            <div class="context-card-header">
+              <h4>🔧 操作池</h4>
+              <span class="context-card-toggle">▼</span>
+            </div>
+            <div class="context-card-body">
+              <div id="operationPoolContent" class="context-item"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 工具调用详情对话框 -->
+  <div id="toolCallModal" class="tool-call-modal" style="display: none;">
+    <div class="tool-call-modal-overlay"></div>
+    <div class="tool-call-modal-content">
+      <div class="tool-call-modal-header">
+        <h3 id="toolCallModalTitle">工具调用详情</h3>
+        <button class="tool-call-modal-close" id="toolCallModalClose">×</button>
+      </div>
+      <div class="tool-call-modal-body">
+        <div class="tool-call-section">
+          <div class="tool-call-section-title">调用参数</div>
+          <div class="tool-call-card" id="toolCallModalArgs"></div>
+        </div>
+        <div class="tool-call-section">
+          <div class="tool-call-section-title">执行结果</div>
+          <div class="tool-call-card" id="toolCallModalResult"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 操作详情对话框 -->
+  <div id="operationModal" class="operation-modal" style="display: none;">
+    <div class="operation-modal-overlay"></div>
+    <div class="operation-modal-content">
+      <div class="operation-modal-header">
+        <h3 id="operationModalTitle">操作详情</h3>
+        <button class="operation-modal-close" id="operationModalClose">×</button>
+      </div>
+      <div class="operation-modal-body">
+        <div class="operation-section">
+          <div class="operation-section-title">工具调用ID</div>
+          <div class="operation-id" id="operationModalId"></div>
+        </div>
+        <div class="operation-section">
+          <div class="operation-section-title">调用参数</div>
+          <div class="tool-call-card" id="operationModalArgs"></div>
+        </div>
+        <div class="operation-section">
+          <div class="operation-section-title">执行结果</div>
+          <div class="tool-call-card" id="operationModalResult"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>

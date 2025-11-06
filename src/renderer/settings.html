@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>设置</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+    }
+    body {
+      display: flex;
+      flex-direction: row;
+      position: relative;
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      background: #1e1e1e;
+    }
+    .settings-backdrop {
+      display: none; /* 隐藏背景层，无边框窗口不需要 */
+    }
+    .settings-sidebar {
+      width: 200px;
+      background: #252525;
+      border-right: 1px solid #3d3d3d;
+      padding: 0;
+      z-index: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+    .settings-sidebar-title {
+      padding: 20px 24px;
+      font-size: 20px;
+      font-weight: 600;
+      color: #e0e0e0;
+      border-bottom: 1px solid #3d3d3d;
+    }
+    .settings-sidebar-item {
+      padding: 12px 24px;
+      cursor: pointer;
+      color: #a0a0a0;
+      transition: all 0.2s;
+      border-left: 3px solid transparent;
+    }
+    .settings-sidebar-item:hover {
+      background: #2d2d2d;
+      color: #e0e0e0;
+    }
+    .settings-sidebar-item.active {
+      background: #2d2d2d;
+      color: #667eea;
+      border-left-color: #667eea;
+    }
+    .settings-container {
+      flex: 1;
+      padding: 24px;
+      position: relative;
+      overflow-y: auto;
+      height: 100%;
+      z-index: 1;
+      background: #1e1e1e;
+      width: 100%;
+    }
+    .settings-header {
+      margin-bottom: 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .settings-title {
+      font-size: 24px;
+      margin: 0;
+    }
+    .close-btn {
+      background: transparent;
+      border: none;
+      color: #e0e0e0;
+      font-size: 24px;
+      cursor: pointer;
+      padding: 4px 8px;
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 4px;
+      transition: background 0.2s;
+    }
+    .close-btn:hover {
+      background: #3d3d3d;
+    }
+    .settings-section {
+      display: none;
+    }
+    .settings-section.active {
+      display: block;
+    }
+    .settings-group {
+      margin-bottom: 24px;
+    }
+    .settings-label {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      color: #a0a0a0;
+    }
+    .settings-input {
+      width: 100%;
+      background: #2d2d2d;
+      border: 1px solid #3d3d3d;
+      color: #e0e0e0;
+      padding: 10px;
+      border-radius: 6px;
+      font-size: 14px;
+      font-family: inherit;
+    }
+    .settings-input:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+    .settings-select {
+      width: 100%;
+      background: #2d2d2d;
+      border: 1px solid #3d3d3d;
+      color: #e0e0e0;
+      padding: 10px;
+      border-radius: 6px;
+      font-size: 14px;
+      font-family: inherit;
+    }
+    .settings-buttons {
+      display: flex;
+      gap: 12px;
+      justify-content: flex-end;
+      margin-top: 32px;
+    }
+    .settings-btn {
+      padding: 10px 24px;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+    }
+    .settings-btn-primary {
+      background: #667eea;
+      color: white;
+    }
+    .settings-btn-secondary {
+      background: #3d3d3d;
+      color: #e0e0e0;
+    }
+    .settings-btn:hover {
+      opacity: 0.9;
+    }
+    .settings-hint {
+      font-size: 12px;
+      color: #808080;
+      margin-top: 4px;
+    }
+  </style>
+</head>
+<body style="background: #1e1e1e; color: #e0e0e0;">
+  <div class="settings-backdrop" id="backdrop"></div>
+  <div class="settings-sidebar">
+    <div class="settings-sidebar-title">设置</div>
+    <div class="settings-sidebar-item active" data-section="model">模型设置</div>
+    <div class="settings-sidebar-item" data-section="proxy">代理设置</div>
+  </div>
+  <div class="settings-container" id="settingsContainer">
+    <div class="settings-header">
+      <h1 class="settings-title" id="sectionTitle">模型设置</h1>
+      <button id="closeBtn" class="close-btn" title="关闭">×</button>
+    </div>
+    
+    <!-- 模型设置 -->
+    <div class="settings-section active" id="modelSection">
+      <div class="settings-group">
+        <label class="settings-label">API Key</label>
+        <input type="password" id="apiKey" class="settings-input" placeholder="请输入API Key">
+      </div>
+
+      <div class="settings-group">
+        <label class="settings-label">API URL (基础URL)</label>
+        <input type="text" id="apiUrl" class="settings-input" placeholder="https://api.openai.com/v1">
+        <div class="settings-hint" id="apiUrlPreview">完整路径: <span id="apiUrlPreviewText">-</span></div>
+      </div>
+
+      <div class="settings-group">
+        <label class="settings-label">Model</label>
+        <select id="model" class="settings-select">
+          <option value="">请先填写API Key和URL，然后点击加载模型</option>
+        </select>
+        <button id="loadModelsBtn" class="settings-btn settings-btn-secondary" style="margin-top: 8px; width: 100%;">加载模型列表</button>
+      </div>
+
+      <div class="settings-group">
+        <label class="settings-label">最大上下文长度</label>
+        <input type="number" id="maxContextLength" class="settings-input" placeholder="16384" min="1000" max="1000000">
+        <div class="settings-hint">用于限制每个模型推理请求的最大上下文tokens数</div>
+      </div>
+    </div>
+
+    <!-- 代理设置 -->
+    <div class="settings-section" id="proxySection">
+      <div class="settings-group">
+        <label class="settings-label">HTTP Proxy</label>
+        <input type="text" id="httpProxy" class="settings-input" placeholder="http://proxy.example.com:8080">
+      </div>
+
+      <div class="settings-group">
+        <label class="settings-label">HTTPS Proxy</label>
+        <input type="text" id="httpsProxy" class="settings-input" placeholder="https://proxy.example.com:8080">
+      </div>
+
+      <div class="settings-group">
+        <label class="settings-label">No Proxy</label>
+        <input type="text" id="noProxy" class="settings-input" placeholder="localhost,127.0.0.1">
+      </div>
+    </div>
+
+  </div>
+
+  <script src="settings.js"></script>
+</body>
+</html>
