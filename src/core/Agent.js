@@ -1,4 +1,6 @@
 const axios = require('axios');
+const { HttpsProxyAgent } = require('https-proxy-agent');
+const { HttpProxyAgent } = require('http-proxy-agent');
 
 /**
  * Agent基类
@@ -21,13 +23,27 @@ class Agent {
       }
     };
 
-    // 配置代理 - 使用 axios 的 proxy 配置，支持带认证的代理格式
+    // 配置代理 - 使用代理 agent，支持带认证的代理格式
     // 格式：http://username:password@proxy_address:port
-    // 对于 HTTPS 请求，优先使用 httpsProxy，否则使用 httpProxy
-    if (this.settings.httpsProxy) {
-      config.proxy = this.settings.httpsProxy;
-    } else if (this.settings.httpProxy) {
-      config.proxy = this.settings.httpProxy;
+    // 判断 API URL 是 HTTP 还是 HTTPS
+    const isHttps = this.settings.apiUrl && this.settings.apiUrl.startsWith('https://');
+    
+    if (isHttps && this.settings.httpsProxy) {
+      // HTTPS 请求使用 httpsProxy
+      config.httpsAgent = new HttpsProxyAgent(this.settings.httpsProxy);
+      console.log(`[${this.name}] Using HTTPS proxy:`, this.settings.httpsProxy.replace(/:[^:@]*@/, ':****@')); // 隐藏密码
+    } else if (isHttps && this.settings.httpProxy) {
+      // HTTPS 请求但只配置了 httpProxy，也使用它
+      config.httpsAgent = new HttpsProxyAgent(this.settings.httpProxy);
+      console.log(`[${this.name}] Using HTTP proxy for HTTPS request:`, this.settings.httpProxy.replace(/:[^:@]*@/, ':****@')); // 隐藏密码
+    } else if (!isHttps && this.settings.httpProxy) {
+      // HTTP 请求使用 httpProxy
+      config.httpAgent = new HttpProxyAgent(this.settings.httpProxy);
+      console.log(`[${this.name}] Using HTTP proxy:`, this.settings.httpProxy.replace(/:[^:@]*@/, ':****@')); // 隐藏密码
+    } else if (!isHttps && this.settings.httpsProxy) {
+      // HTTP 请求但只配置了 httpsProxy，也使用它
+      config.httpAgent = new HttpProxyAgent(this.settings.httpsProxy);
+      console.log(`[${this.name}] Using HTTPS proxy for HTTP request:`, this.settings.httpsProxy.replace(/:[^:@]*@/, ':****@')); // 隐藏密码
     }
 
     return config;

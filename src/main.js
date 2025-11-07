@@ -280,15 +280,34 @@ ipcMain.handle('get-models', async (event) => {
 
   try {
     const axios = require('axios');
+    const { HttpsProxyAgent } = require('https-proxy-agent');
+    const { HttpProxyAgent } = require('http-proxy-agent');
     
-    // 配置代理 - 使用 axios 的 proxy 配置，支持带认证的代理格式
+    // 配置代理 - 使用代理 agent，支持带认证的代理格式
     // 格式：http://username:password@proxy_address:port
-    // 对于 HTTPS 请求，优先使用 httpsProxy，否则使用 httpProxy
     const proxyConfig = {};
-    if (httpsProxy) {
-      proxyConfig.proxy = httpsProxy;
-    } else if (httpProxy) {
-      proxyConfig.proxy = httpProxy;
+    
+    // 判断 API URL 是 HTTP 还是 HTTPS
+    const isHttps = apiUrl.startsWith('https://');
+    
+    if (isHttps && httpsProxy) {
+      // HTTPS 请求使用 httpsProxy
+      proxyConfig.httpsAgent = new HttpsProxyAgent(httpsProxy);
+      console.log('[Main] Using HTTPS proxy for models request:', httpsProxy.replace(/:[^:@]*@/, ':****@')); // 隐藏密码
+    } else if (isHttps && httpProxy) {
+      // HTTPS 请求但只配置了 httpProxy，也使用它
+      proxyConfig.httpsAgent = new HttpsProxyAgent(httpProxy);
+      console.log('[Main] Using HTTP proxy for HTTPS models request:', httpProxy.replace(/:[^:@]*@/, ':****@')); // 隐藏密码
+    } else if (!isHttps && httpProxy) {
+      // HTTP 请求使用 httpProxy
+      proxyConfig.httpAgent = new HttpProxyAgent(httpProxy);
+      console.log('[Main] Using HTTP proxy for models request:', httpProxy.replace(/:[^:@]*@/, ':****@')); // 隐藏密码
+    } else if (!isHttps && httpsProxy) {
+      // HTTP 请求但只配置了 httpsProxy，也使用它
+      proxyConfig.httpAgent = new HttpProxyAgent(httpsProxy);
+      console.log('[Main] Using HTTPS proxy for HTTP models request:', httpsProxy.replace(/:[^:@]*@/, ':****@')); // 隐藏密码
+    } else {
+      console.log('[Main] No proxy configured for models request');
     }
 
     const url = `${apiUrl}/models`;
