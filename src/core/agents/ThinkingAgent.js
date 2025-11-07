@@ -10,18 +10,46 @@ class ThinkingAgent extends Agent {
     this.name = 'ThinkingAgent';
   }
 
-  getSystemPrompt() {
+  getSystemPrompt(tools = []) {
     const basePrompt = promptLoader.load('ThinkingAgent');
     const workDirInfo = this.workDirectory 
       ? `\n\n重要提示：当前工作目录路径为：${this.workDirectory}\n所有文件操作和路径引用都应该基于此工作目录。`
       : '\n\n重要提示：工作目录未设置。';
-    return basePrompt + workDirInfo;
+    
+    // 添加工具信息
+    let toolsInfo = '';
+    if (tools && tools.length > 0) {
+      toolsInfo = '\n\n可用工具列表：\n';
+      tools.forEach((tool, index) => {
+        toolsInfo += `${index + 1}. ${tool.displayName} (${tool.name})\n`;
+        toolsInfo += `   描述：${tool.description}\n`;
+        if (tool.schema && tool.schema.properties) {
+          const requiredParams = tool.schema.required || [];
+          const properties = tool.schema.properties;
+          toolsInfo += `   参数：\n`;
+          Object.keys(properties).forEach(paramName => {
+            const param = properties[paramName];
+            const isRequired = requiredParams.includes(paramName);
+            toolsInfo += `     - ${paramName} (${param.type || 'unknown'})${isRequired ? ' [必填]' : ' [可选]'}`;
+            if (param.description) {
+              toolsInfo += `: ${param.description}`;
+            }
+            toolsInfo += '\n';
+          });
+        }
+        toolsInfo += '\n';
+      });
+    } else {
+      toolsInfo = '\n\n可用工具列表：无可用工具。\n';
+    }
+    
+    return basePrompt + workDirInfo + toolsInfo;
   }
 
-  async think(userQuery) {
-    console.log('[ThinkingAgent] think called', { userQueryLength: userQuery ? userQuery.length : 0 });
+  async think(userQuery, tools = []) {
+    console.log('[ThinkingAgent] think called', { userQueryLength: userQuery ? userQuery.length : 0, toolsCount: tools ? tools.length : 0 });
     
-    const systemPrompt = this.getSystemPrompt();
+    const systemPrompt = this.getSystemPrompt(tools);
     const messages = [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userQuery }
@@ -37,9 +65,9 @@ class ThinkingAgent extends Agent {
   /**
    * 流式思考：逐步产出内容
    */
-  async *thinkStream(userQuery) {
-    console.log('[ThinkingAgent] thinkStream called', { userQueryLength: userQuery ? userQuery.length : 0 });
-    const systemPrompt = this.getSystemPrompt();
+  async *thinkStream(userQuery, tools = []) {
+    console.log('[ThinkingAgent] thinkStream called', { userQueryLength: userQuery ? userQuery.length : 0, toolsCount: tools ? tools.length : 0 });
+    const systemPrompt = this.getSystemPrompt(tools);
     const messages = [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userQuery }

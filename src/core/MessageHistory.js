@@ -13,6 +13,7 @@ class MessageHistory {
 
   /**
    * 添加消息（自动处理占位符）
+   * 直接保存为OpenAI标准格式
    */
   addMessage(role, content, toolCalls = null) {
     // 提取代码片段和工具调用结果，用占位符替换
@@ -27,15 +28,44 @@ class MessageHistory {
       processedContent = processedContent.replace(block, `[CODE_${index}]`);
     });
 
+    // 直接保存为OpenAI标准格式
     const message = {
       role: role,
-      content: processedContent,
-      timestamp: Date.now()
+      content: processedContent
     };
     
-    // 如果有工具调用，保存到消息中
+    // 如果有工具调用，转换为OpenAI标准格式（tool_calls）
+    // 注意：不保存result字段，因为结果已经在tool消息中了
     if (toolCalls && Array.isArray(toolCalls) && toolCalls.length > 0) {
-      message.toolCalls = toolCalls;
+      message.tool_calls = toolCalls.map(tc => {
+        // 确保arguments是JSON字符串（OpenAI标准格式）
+        let args = tc.arguments;
+        if (typeof args === 'string') {
+          // 如果已经是字符串，尝试验证是否为有效JSON
+          try {
+            JSON.parse(args);
+          } catch (e) {
+            // 如果不是有效JSON，转换为对象再序列化
+            args = {};
+          }
+        } else if (args && typeof args === 'object') {
+          // 如果是对象，序列化为JSON字符串
+          args = JSON.stringify(args);
+        } else {
+          // 其他情况，使用空对象
+          args = JSON.stringify({});
+        }
+        
+        // 只保存id、type和function，不保存result（结果在tool消息中）
+        return {
+          id: tc.id,
+          type: 'function',
+          function: {
+            name: tc.name,
+            arguments: args
+          }
+        };
+      });
     }
 
     this.history.push(message);
@@ -43,6 +73,7 @@ class MessageHistory {
 
   /**
    * 获取用于推理的消息历史（可选择是否还原占位符）
+   * 由于已经保存为OpenAI标准格式，直接返回即可
    */
   getMessagesForInference(includeFullContent = false) {
     return this.history.map(msg => {
@@ -70,21 +101,41 @@ class MessageHistory {
         });
       }
       
+      // 直接返回消息（已经符合OpenAI格式，包括tool_calls）
       const message = {
         role: msg.role,
         content: content
       };
       
-      // 如果有工具调用，转换为OpenAI API格式
-      if (msg.toolCalls && Array.isArray(msg.toolCalls) && msg.toolCalls.length > 0) {
-        message.tool_calls = msg.toolCalls.map(tc => ({
-          id: tc.id,
-          type: 'function',
-          function: {
-            name: tc.name,
-            arguments: JSON.stringify(tc.arguments || {})
+      // 如果有tool_calls，直接复制（已经是OpenAI格式）
+      if (msg.tool_calls && Array.isArray(msg.tool_calls) && msg.tool_calls.length > 0) {
+        message.tool_calls = msg.tool_calls;
+      }
+      
+      // 兼容旧格式（toolCalls）
+      if (!message.tool_calls && msg.toolCalls && Array.isArray(msg.toolCalls) && msg.toolCalls.length > 0) {
+        message.tool_calls = msg.toolCalls.map(tc => {
+          let args = tc.arguments;
+          if (typeof args === 'string') {
+            try {
+              JSON.parse(args);
+            } catch (e) {
+              args = JSON.stringify({});
+            }
+          } else if (args && typeof args === 'object') {
+            args = JSON.stringify(args);
+          } else {
+            args = JSON.stringify({});
           }
-        }));
+          return {
+            id: tc.id,
+            type: 'function',
+            function: {
+              name: tc.name,
+              arguments: args
+            }
+          };
+        });
       }
       
       return message;
@@ -94,6 +145,7 @@ class MessageHistory {
   /**
    * 获取当前轮次的消息（从最近一次用户消息开始到最新的消息）
    * 用于交互Agent，确保当前轮次的所有消息都作为messages传递，而不是放在context里
+   * 由于已经保存为OpenAI标准格式，直接返回即可
    */
   getCurrentTurnMessages(includeFullContent = false) {
     // 找到最近一次用户消息的索引
@@ -138,21 +190,41 @@ class MessageHistory {
         });
       }
       
+      // 直接返回消息（已经符合OpenAI格式，包括tool_calls）
       const message = {
         role: msg.role,
         content: content
       };
       
-      // 如果有工具调用，转换为OpenAI API格式
-      if (msg.toolCalls && Array.isArray(msg.toolCalls) && msg.toolCalls.length > 0) {
-        message.tool_calls = msg.toolCalls.map(tc => ({
-          id: tc.id,
-          type: 'function',
-          function: {
-            name: tc.name,
-            arguments: JSON.stringify(tc.arguments || {})
+      // 如果有tool_calls，直接复制（已经是OpenAI格式）
+      if (msg.tool_calls && Array.isArray(msg.tool_calls) && msg.tool_calls.length > 0) {
+        message.tool_calls = msg.tool_calls;
+      }
+      
+      // 兼容旧格式（toolCalls）
+      if (!message.tool_calls && msg.toolCalls && Array.isArray(msg.toolCalls) && msg.toolCalls.length > 0) {
+        message.tool_calls = msg.toolCalls.map(tc => {
+          let args = tc.arguments;
+          if (typeof args === 'string') {
+            try {
+              JSON.parse(args);
+            } catch (e) {
+              args = JSON.stringify({});
+            }
+          } else if (args && typeof args === 'object') {
+            args = JSON.stringify(args);
+          } else {
+            args = JSON.stringify({});
           }
-        }));
+          return {
+            id: tc.id,
+            type: 'function',
+            function: {
+              name: tc.name,
+              arguments: args
+            }
+          };
+        });
       }
       
       return message;

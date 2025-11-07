@@ -15,47 +15,193 @@ body {
 /* 工作目录选择界面 */
 .work-dir-select {
   display: flex;
+  flex-direction: column;
   justify-content: center;
   align-items: center;
   height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: #1e1e1e;
+  position: relative;
+  overflow: hidden;
+}
+
+/* 鎏光动画背景 */
+.work-dir-select::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(
+    45deg,
+    rgba(102, 126, 234, 0.15) 0%,
+    rgba(118, 75, 162, 0.12) 20%,
+    rgba(102, 126, 234, 0.25) 40%,
+    rgba(118, 75, 162, 0.28) 60%,
+    rgba(102, 126, 234, 0.18) 80%,
+    rgba(118, 75, 162, 0.15) 100%
+  );
+  background-size: 400% 400%;
+  animation: flowingLight 15s ease-in-out infinite;
+  z-index: 0;
+}
+
+@keyframes flowingLight {
+  0% {
+    background-position: 0% 50%;
+    transform: rotate(0deg);
+  }
+  50% {
+    background-position: 100% 50%;
+    transform: rotate(180deg);
+  }
+  100% {
+    background-position: 0% 50%;
+    transform: rotate(360deg);
+  }
+}
+
+/* 工作目录选择界面顶部栏 */
+.work-dir-top-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 16px;
+  background: rgba(45, 45, 45, 0.8);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(61, 61, 61, 0.5);
+  -webkit-app-region: drag; /* 允许拖动窗口 */
+  user-select: none;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
+}
+
+.work-dir-top-bar-drag {
+  flex: 1;
+  -webkit-app-region: drag; /* 可拖动区域 */
+}
+
+.work-dir-window-controls {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  -webkit-app-region: no-drag; /* 按钮不可拖动 */
 }
 
 .work-dir-content {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
   text-align: center;
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
-  padding: 60px 80px;
+  background: rgba(45, 45, 45, 0.6);
+  backdrop-filter: blur(20px) saturate(180%);
+  padding: 40px 100px;
   border-radius: 20px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(102, 126, 234, 0.3);
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.5),
+    0 0 60px rgba(102, 126, 234, 0.2),
+    inset 0 0 30px rgba(102, 126, 234, 0.1);
+  margin: auto;
+  max-width: 900px;
+  width: 90%;
+  position: relative;
+  z-index: 1;
 }
 
 .work-dir-content h1 {
-  font-size: 48px;
-  margin-bottom: 20px;
+  font-size: 42px;
+  margin-bottom: 16px;
   color: white;
 }
 
 .work-dir-content p {
-  font-size: 18px;
-  margin-bottom: 30px;
+  font-size: 16px;
+  margin-bottom: 24px;
   color: rgba(255, 255, 255, 0.9);
 }
 
 .select-dir-btn {
-  background: white;
-  color: #667eea;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
   border: none;
   padding: 15px 40px;
   font-size: 18px;
+  font-weight: 600;
   border-radius: 10px;
   cursor: pointer;
-  transition: transform 0.2s, box-shadow 0.2s;
+  transition: all 0.3s;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
 }
 
 .select-dir-btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+  background: linear-gradient(135deg, #7685f0 0%, #8655b8 100%);
+}
+
+/* 工作目录选择界面的最近目录列表 */
+.work-dir-recent-dirs-list {
+  margin-top: 24px;
+  width: 100%;
+  max-width: 700px;
+}
+
+.work-dir-recent-dirs-title {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 12px;
+  text-align: left;
+}
+
+.work-dir-recent-dirs-item {
+  padding: 12px 16px;
+  margin-bottom: 8px;
+  background: rgba(45, 45, 45, 0.5);
+  backdrop-filter: blur(10px);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s;
+  border: 1px solid rgba(102, 126, 234, 0.2);
+  text-align: left;
+}
+
+.work-dir-recent-dirs-item:hover {
+  background: rgba(45, 45, 45, 0.8);
+  border-color: rgba(102, 126, 234, 0.5);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+}
+
+.work-dir-recent-dirs-item-name {
+  font-size: 15px;
+  color: white;
+  font-weight: 500;
+  margin-bottom: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.work-dir-recent-dirs-item-path {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.work-dir-recent-dirs-empty {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.5);
+  text-align: center;
+  padding: 20px;
+  font-style: italic;
 }
 
 /* 主界面 */
@@ -69,46 +215,288 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 20px;
+  padding: 6px 16px;
   background: #2d2d2d;
   border-bottom: 1px solid #3d3d3d;
+  -webkit-app-region: drag; /* 允许拖动窗口 */
+  user-select: none;
 }
 
-.work-dir-info {
+.top-bar-left {
+  flex: 1;
   display: flex;
   align-items: center;
-  gap: 12px;
+}
+
+.app-title-btn {
+  background: transparent;
+  border: none;
   font-size: 14px;
+  font-weight: 600;
+  color: #e0e0e0;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background 0.2s, color 0.2s;
+  -webkit-app-region: no-drag; /* 按钮不可拖动 */
+  font-family: inherit;
+}
+
+.app-title-btn:hover {
+  background: #4d4d4d;
+  color: #ffffff;
+}
+
+.top-bar-center {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.work-dir-container {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #3d3d3d;
+  padding: 4px 10px;
+  border-radius: 6px;
+  max-width: 600px;
+  min-width: 300px;
+  -webkit-app-region: drag; /* 工作路径容器可拖动 */
+}
+
+.work-dir-path {
+  flex: 1;
+  font-size: 12px;
   color: #a0a0a0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .change-dir-btn {
-  background: #3d3d3d;
+  background: transparent;
   color: #e0e0e0;
   border: none;
-  padding: 6px 12px;
-  border-radius: 6px;
+  padding: 2px 6px;
+  border-radius: 4px;
   cursor: pointer;
   font-size: 12px;
   transition: background 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  -webkit-app-region: no-drag; /* 按钮不可拖动 */
 }
 
 .change-dir-btn:hover {
   background: #4d4d4d;
 }
 
-.settings-btn {
-  background: #3d3d3d;
+.recent-dirs-dropdown {
+  position: relative;
+  flex-shrink: 0;
+  -webkit-app-region: no-drag;
+}
+
+.recent-dirs-btn {
+  background: transparent;
   color: #e0e0e0;
   border: none;
-  padding: 8px 16px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  -webkit-app-region: no-drag;
+}
+
+.recent-dirs-btn:hover {
+  background: #4d4d4d;
+}
+
+.recent-dirs-dropdown-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 4px;
+  background: #2d2d2d;
+  border: 1px solid #404040;
   border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  min-width: 300px;
+  max-width: 500px;
+  z-index: 1000;
+  overflow: hidden;
+}
+
+.recent-dirs-list {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.recent-dirs-item {
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: background 0.2s;
+  border-bottom: 1px solid #3a3a3a;
+}
+
+.recent-dirs-item:last-child {
+  border-bottom: none;
+}
+
+.recent-dirs-item:hover {
+  background: #3a3a3a;
+}
+
+.recent-dirs-item.active {
+  background: #2a4a6a;
+}
+
+.recent-dirs-item.active:hover {
+  background: #2f5a7a;
+}
+
+.recent-dirs-item.empty {
+  color: #888;
+  cursor: default;
+  text-align: center;
+  padding: 20px;
+}
+
+.recent-dirs-item.empty:hover {
+  background: transparent;
+}
+
+.recent-dirs-item-name {
+  font-size: 13px;
+  color: #e0e0e0;
+  font-weight: 500;
+  margin-bottom: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recent-dirs-item-path {
+  font-size: 11px;
+  color: #a0a0a0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.top-bar-right {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.settings-btn {
+  background: transparent;
+  color: #e0e0e0;
+  border: none;
+  padding: 4px 8px;
+  border-radius: 4px;
   cursor: pointer;
   font-size: 14px;
+  transition: background 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-app-region: no-drag; /* 按钮不可拖动 */
 }
 
 .settings-btn:hover {
   background: #4d4d4d;
+}
+
+.window-controls {
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+
+.window-control-btn {
+  background: transparent;
+  color: #e0e0e0;
+  border: none;
+  padding: 4px 10px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 300;
+  transition: background 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+  -webkit-app-region: no-drag; /* 窗口控制按钮不可拖动 */
+  position: relative;
+  /* 使用伪元素绘制图标，避免不同字体符号的视觉不对齐 */
+  font-size: 0; /* 隐藏原字符，改由 ::before/::after 绘制 */
+}
+
+.window-control-btn:hover {
+  background: #4d4d4d;
+}
+
+.window-control-btn.close-btn:hover {
+  background: #e81123;
+  color: white;
+}
+
+/* 统一绘制窗口按钮图标，确保垂直居中对齐 */
+.window-control-btn::before,
+.window-control-btn::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+
+/* 最小化：一条水平线 */
+.minimize-btn::before {
+  width: 12px;
+  height: 2px;
+  background: currentColor;
+  border-radius: 1px;
+}
+
+/* 最大化：一个方框 */
+.maximize-btn::before {
+  width: 12px;
+  height: 12px;
+  box-sizing: border-box;
+  border: 2px solid currentColor;
+  border-radius: 2px;
+}
+
+/* 关闭：两条交叉的线 */
+.close-btn::before,
+.close-btn::after {
+  width: 12px;
+  height: 2px;
+  background: currentColor;
+  border-radius: 1px;
+}
+
+.close-btn::before {
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.close-btn::after {
+  transform: translate(-50%, -50%) rotate(-45deg);
 }
 
 .main-content {
@@ -202,6 +590,13 @@ body {
 .session-item-time {
   font-size: 12px;
   color: #808080;
+  margin-bottom: 2px;
+}
+
+.session-item-id {
+  font-size: 11px;
+  color: #666666;
+  font-family: 'Courier New', monospace;
 }
 
 .session-item-delete {
@@ -239,6 +634,7 @@ body {
   flex-direction: column;
   background: #1e1e1e;
   overflow: hidden; /* 防止内容溢出 */
+  position: relative; /* 为欢迎界面定位提供参考 */
 }
 
 .context-progress {
@@ -279,6 +675,61 @@ body {
   display: flex;
   flex-direction: column;
   gap: 16px;
+  position: relative; /* 为欢迎界面定位提供参考 */
+}
+
+/* 欢迎界面 */
+.welcome-screen {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.welcome-screen.hidden {
+  display: none;
+}
+
+.welcome-content {
+  text-align: center;
+  max-width: 600px;
+  padding: 40px;
+  animation: fadeIn 0.5s ease-in;
+}
+
+.welcome-title {
+  font-size: 48px;
+  font-weight: 700;
+  color: #e0e0e0;
+  margin-bottom: 16px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.welcome-description {
+  font-size: 24px;
+  color: #a0a0a0;
+  margin-bottom: 24px;
+  font-weight: 500;
+}
+
+.welcome-hint {
+  font-size: 16px;
+  color: #808080;
+  margin-bottom: 12px;
+  line-height: 1.6;
+}
+
+.welcome-hint:last-child {
+  margin-bottom: 0;
 }
 
 .message {
@@ -317,15 +768,14 @@ body {
 
 /* 助手消息：无背景色，直接展示 */
 .message.assistant {
-  margin-bottom: 0;
-  padding-bottom: 16px;
+  margin-bottom: 5px;
+  padding-bottom: 0;
   min-width: 0; /* 允许收缩 */
   max-width: 100%; /* 确保不超过父容器 */
 }
 
-.message.assistant:not(:last-of-type) {
-  border-bottom: 1px solid #3d3d3d;
-  margin-bottom: 16px;
+.message.assistant:last-of-type {
+  margin-bottom: 0;
 }
 
 .message.assistant .message-content {
@@ -369,10 +819,11 @@ body {
 .tool-call {
   border-radius: 6px;
   overflow: hidden;
+  display: inline-block;
 }
 
 .tool-call-bar {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 8px;
   padding: 10px 12px;
@@ -389,10 +840,10 @@ body {
 }
 
 .tool-call-display-name {
-  flex: 1;
   font-weight: 600;
   color: #667eea;
   font-size: 14px;
+  flex: 0 0 auto;
 }
 
 .tool-call-icon {
@@ -518,6 +969,34 @@ body {
   word-wrap: break-word;
   overflow-wrap: break-word;
   word-break: break-word;
+}
+
+/* 总结性回答分割线 */
+.summary-divider {
+  margin: 24px 16px;
+  height: 1px;
+  background: linear-gradient(90deg, 
+    transparent 0%, 
+    rgba(102, 126, 234, 0.3) 20%, 
+    rgba(118, 75, 162, 0.5) 50%, 
+    rgba(102, 126, 234, 0.3) 80%, 
+    transparent 100%
+  );
+  position: relative;
+  overflow: visible;
+}
+
+.summary-divider::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 6px;
+  height: 6px;
+  background: #667eea;
+  border-radius: 50%;
+  box-shadow: 0 0 6px rgba(102, 126, 234, 0.8);
 }
 
 .message-tool-calls {
@@ -676,6 +1155,8 @@ body {
   min-width: 200px;
   position: relative;
   overflow: hidden;
+  opacity: 1;
+  transition: opacity 0.35s ease;
 }
 
 .status-bar-content {
@@ -749,6 +1230,30 @@ body {
 
 .status-bar.status-bar-completed::after {
   display: none;
+}
+
+/* 完成状态：将状态栏边框变为绿色 */
+.status-bar.status-bar-completed {
+  border-top: 2px solid #4caf50;
+}
+
+/* 错误状态样式 */
+.status-bar.status-bar-error {
+  background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
+  border-top: 2px solid #ff4444;
+}
+
+.status-bar.status-bar-error .status-bar-icon {
+  animation: none;
+}
+
+.status-bar.status-bar-error::after {
+  display: none;
+}
+
+/* 渐隐效果：用于完成后隐藏前的过渡 */
+.status-bar.status-bar-fade-out {
+  opacity: 0;
 }
 
 .status-bar-text {
@@ -914,16 +1419,20 @@ body {
 .context-card.running::before {
   content: '';
   position: absolute;
-  top: -3px;
-  left: -3px;
-  right: -3px;
-  bottom: -3px;
+  inset: 0; /* 充满卡片 */
+  padding: 2px; /* 边框宽度 */
   background: linear-gradient(45deg, #667eea, #764ba2, #f093fb, #4facfe, #667eea);
   background-size: 400% 400%;
-  border-radius: 10px;
+  border-radius: 10px; /* 与卡片圆角匹配 */
   z-index: 0; /* 放在卡片背景之上、内容之下 */
   animation: gradientRotate 2s linear infinite;
   pointer-events: none;
+  /* 仅显示边框区域（中间挖空） */
+  -webkit-mask: 
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+          mask-composite: exclude;
 }
 
 /* 确保标题和正文在渐变边框之上可见 */

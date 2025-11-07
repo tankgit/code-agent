@@ -32,14 +32,24 @@ let appState = {
 const workDirSelect = document.getElementById('workDirSelect');
 const mainApp = document.getElementById('mainApp');
 const selectDirBtn = document.getElementById('selectDirBtn');
+const workDirCloseBtn = document.getElementById('workDirCloseBtn');
+const workDirRecentDirsList = document.getElementById('workDirRecentDirsList');
 const workDirPath = document.getElementById('workDirPath');
 const changeDirBtn = document.getElementById('changeDirBtn');
+const appTitleBtn = document.getElementById('appTitleBtn');
+const recentDirsBtn = document.getElementById('recentDirsBtn');
+const recentDirsDropdown = document.getElementById('recentDirsDropdown');
+const recentDirsList = document.getElementById('recentDirsList');
 const settingsBtn = document.getElementById('settingsBtn');
+const minimizeBtn = document.getElementById('minimizeBtn');
+const maximizeBtn = document.getElementById('maximizeBtn');
+const closeBtn = document.getElementById('closeBtn');
 const newSessionBtn = document.getElementById('newSessionBtn');
 const sessionList = document.getElementById('sessionList');
 const chatMessages = document.getElementById('chatMessages');
 const chatInput = document.getElementById('chatInput');
 const sendBtn = document.getElementById('sendBtn');
+const welcomeScreen = document.getElementById('welcomeScreen');
 const progressFill = document.getElementById('progressFill');
 const progressText = document.getElementById('progressText');
 const statusBar = document.getElementById('statusBar');
@@ -65,14 +75,7 @@ let isFirstTodo = true; // 是否是第一个TODO
 let currentOpenToolCallId = null; // 当前打开的对话框对应的工具调用ID
 let operationPoolMap = new Map(); // 存储调用池中操作的DOM元素映射
 
-// 工具名称到展示名称的映射
-const toolDisplayNames = {
-  'read_file': '读取文件',
-  'list_directory': '查看目录',
-  'ls': '查看目录',
-  'search_text': '搜索文本',
-  'search_file': '搜索文件',
-};
+// 工具展示名称现在直接从工具实例中获取，不再需要硬编码映射
 
 // 模块类型到卡片元素的映射
 const moduleCardMap = {
@@ -157,11 +160,146 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
+// 切换工作目录的通用函数
+async function switchWorkDirectory(dir) {
+  if (!dir) return;
+  
+  try {
+    // 清空当前会话状态
+    appState.currentSessionId = null;
+    appState.sessions = [];
+    chatMessages.innerHTML = '';
+    
+    // 清空Context面板
+    clearContextPanel();
+    
+    // 显示欢迎界面
+    updateWelcomeScreen();
+    
+    // 更新工作目录
+    appState.workDirectory = dir;
+    workDirPath.textContent = dir;
+    
+    // 重新加载新工作目录的会话
+    await loadSessions();
+    
+    // 更新最近目录列表显示
+    await updateRecentDirsList();
+  } catch (error) {
+    console.error('Error switching directory:', error);
+    alert('切换目录时出错: ' + error.message);
+  }
+}
+
+// 加载并显示最近目录列表
+async function updateRecentDirsList() {
+  if (!recentDirsList || !window.electronAPI) return;
+  
+  try {
+    const recentDirs = await window.electronAPI.getRecentDirectories();
+    recentDirsList.innerHTML = '';
+    
+    if (recentDirs.length === 0) {
+      const emptyItem = document.createElement('div');
+      emptyItem.className = 'recent-dirs-item empty';
+      emptyItem.textContent = '暂无最近打开的项目';
+      recentDirsList.appendChild(emptyItem);
+      return;
+    }
+    
+    recentDirs.forEach(dir => {
+      const item = document.createElement('div');
+      item.className = 'recent-dirs-item';
+      if (dir === appState.workDirectory) {
+        item.classList.add('active');
+      }
+      
+      // 显示目录名称（取最后一部分路径）
+      const dirName = dir.split(/[/\\]/).pop() || dir;
+      const dirPath = dir.length > 50 ? '...' + dir.slice(-47) : dir;
+      
+      item.innerHTML = `
+        <div class="recent-dirs-item-name">${dirName}</div>
+        <div class="recent-dirs-item-path">${dirPath}</div>
+      `;
+      
+      item.addEventListener('click', async () => {
+        const success = await window.electronAPI.switchWorkDirectory(dir);
+        if (success) {
+          await switchWorkDirectory(dir);
+          recentDirsDropdown.style.display = 'none';
+        }
+      });
+      
+      recentDirsList.appendChild(item);
+    });
+  } catch (error) {
+    console.error('Error loading recent directories:', error);
+  }
+}
+
+// 加载并显示工作目录选择界面的最近目录列表
+async function updateWorkDirRecentDirsList() {
+  if (!workDirRecentDirsList || !window.electronAPI) return;
+  
+  try {
+    const recentDirs = await window.electronAPI.getRecentDirectories();
+    workDirRecentDirsList.innerHTML = '';
+    
+    if (recentDirs.length === 0) {
+      const emptyDiv = document.createElement('div');
+      emptyDiv.className = 'work-dir-recent-dirs-empty';
+      emptyDiv.textContent = '暂无最近打开的项目';
+      workDirRecentDirsList.appendChild(emptyDiv);
+      return;
+    }
+    
+    // 只显示最近5条
+    const displayDirs = recentDirs.slice(0, 5);
+    
+    displayDirs.forEach(dir => {
+      const item = document.createElement('div');
+      item.className = 'work-dir-recent-dirs-item';
+      
+      // 显示目录名称（取最后一部分路径）
+      const dirName = dir.split(/[/\\]/).pop() || dir;
+      const dirPath = dir.length > 50 ? '...' + dir.slice(-47) : dir;
+      
+      item.innerHTML = `
+        <div class="work-dir-recent-dirs-item-name">${dirName}</div>
+        <div class="work-dir-recent-dirs-item-path">${dirPath}</div>
+      `;
+      
+      item.addEventListener('click', async () => {
+        try {
+          const success = await window.electronAPI.switchWorkDirectory(dir);
+          if (success) {
+            await switchWorkDirectory(dir);
+            showMainApp();
+          }
+        } catch (error) {
+          console.error('Error switching directory:', error);
+          alert('切换目录时出错: ' + error.message);
+        }
+      });
+      
+      workDirRecentDirsList.appendChild(item);
+    });
+  } catch (error) {
+    console.error('Error loading recent directories for work dir select:', error);
+  }
+}
+
 // 初始化
 async function init() {
   const state = await window.electronAPI.getAppState();
   appState.workDirectory = state.workDirectory;
   appState.settings = state.settings;
+
+  // 如果显示工作目录选择界面，加载最近目录列表
+  if (!appState.workDirectory && workDirRecentDirsList) {
+    await updateWorkDirRecentDirsList();
+  }
 
   if (appState.workDirectory) {
     showMainApp();
@@ -170,9 +308,26 @@ async function init() {
   await loadSessions();
   setupEventListeners();
   initCardToggle();
+  
+  // 加载最近目录列表（主界面）
+  if (recentDirsList) {
+    await updateRecentDirsList();
+  }
+  
+  // 初始化欢迎界面显示状态
+  updateWelcomeScreen();
 }
 
 function setupEventListeners() {
+  // 工作目录选择界面的关闭按钮
+  if (workDirCloseBtn) {
+    workDirCloseBtn.addEventListener('click', () => {
+      if (window.electronAPI) {
+        window.electronAPI.closeWindow();
+      }
+    });
+  }
+
   selectDirBtn.addEventListener('click', async () => {
     try {
       console.log('Select directory button clicked');
@@ -184,15 +339,38 @@ function setupEventListeners() {
       const dir = await window.electronAPI.selectWorkDirectory();
       console.log('Selected directory:', dir);
       if (dir) {
-        appState.workDirectory = dir;
+        await switchWorkDirectory(dir);
         showMainApp();
-        await loadSessions();
       }
     } catch (error) {
       console.error('Error selecting directory:', error);
       alert('选择目录时出错: ' + error.message);
     }
   });
+
+  // 最近目录按钮点击事件
+  if (recentDirsBtn && recentDirsDropdown) {
+    recentDirsBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const isVisible = recentDirsDropdown.style.display !== 'none';
+      
+      if (isVisible) {
+        recentDirsDropdown.style.display = 'none';
+      } else {
+        await updateRecentDirsList();
+        recentDirsDropdown.style.display = 'block';
+      }
+    });
+    
+    // 点击外部关闭下拉菜单
+    document.addEventListener('click', (e) => {
+      if (recentDirsDropdown && recentDirsBtn && 
+          !recentDirsDropdown.contains(e.target) && 
+          !recentDirsBtn.contains(e.target)) {
+        recentDirsDropdown.style.display = 'none';
+      }
+    });
+  }
 
   changeDirBtn.addEventListener('click', async () => {
     try {
@@ -203,29 +381,10 @@ function setupEventListeners() {
         return;
       }
       
-      // 确认是否要切换工作目录（会清空当前会话）
-      const confirmed = confirm('切换工作目录将清空当前会话列表，是否继续？');
-      if (!confirmed) {
-        return;
-      }
-      
       const dir = await window.electronAPI.selectWorkDirectory();
       console.log('Selected directory:', dir);
       if (dir) {
-        // 清空当前会话状态
-        appState.currentSessionId = null;
-        appState.sessions = [];
-        chatMessages.innerHTML = '';
-        
-        // 清空Context面板
-        clearContextPanel();
-        
-        // 更新工作目录
-        appState.workDirectory = dir;
-        workDirPath.textContent = dir;
-        
-        // 重新加载新工作目录的会话
-        await loadSessions();
+        await switchWorkDirectory(dir);
       }
     } catch (error) {
       console.error('Error changing directory:', error);
@@ -236,6 +395,35 @@ function setupEventListeners() {
   settingsBtn.addEventListener('click', () => {
     window.electronAPI.openSettings();
   });
+
+  // 窗口控制按钮
+  if (minimizeBtn) {
+    minimizeBtn.addEventListener('click', () => {
+      window.electronAPI.minimizeWindow();
+    });
+  }
+
+  if (maximizeBtn) {
+    maximizeBtn.addEventListener('click', () => {
+      window.electronAPI.maximizeWindow();
+    });
+  }
+
+  if (closeBtn) {
+    closeBtn.addEventListener('click', () => {
+      window.electronAPI.closeWindow();
+    });
+  }
+
+  // 应用标题按钮点击事件 - 返回工作目录选择界面
+  if (appTitleBtn) {
+    appTitleBtn.addEventListener('click', async () => {
+      // 清空当前工作目录
+      appState.workDirectory = null;
+      // 显示工作目录选择界面
+      await showWorkDirSelect();
+    });
+  }
 
   newSessionBtn.addEventListener('click', createNewSession);
 
@@ -259,6 +447,16 @@ function showMainApp() {
   workDirPath.textContent = appState.workDirectory || '未选择';
 }
 
+// 显示工作目录选择界面
+async function showWorkDirSelect() {
+  mainApp.style.display = 'none';
+  workDirSelect.style.display = 'flex';
+  // 刷新最近目录列表
+  if (workDirRecentDirsList) {
+    await updateWorkDirRecentDirsList();
+  }
+}
+
 async function loadSessions() {
   const sessions = await window.electronAPI.listSessions();
   appState.sessions = sessions;
@@ -279,6 +477,21 @@ function renderSessionList() {
     const sessionTitle = typeof session === 'object' ? session.title : `会话 ${sessionId.substring(0, 8)}`;
     const sessionTime = typeof session === 'object' ? session.updatedAt : (parseInt(sessionId.split('_')[1]) || Date.now());
     
+    // 格式化时间为24小时制
+    const date = new Date(sessionTime);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const seconds = String(date.getSeconds()).padStart(2, '0');
+    const timeString = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+    
+    // 提取session_id的数字部分（去掉session_前缀）
+    const sessionIdNumber = sessionId.startsWith('session_') 
+      ? sessionId.substring('session_'.length) 
+      : sessionId;
+    
     const item = document.createElement('div');
     item.className = 'session-item';
     if (sessionId === appState.currentSessionId) {
@@ -288,7 +501,8 @@ function renderSessionList() {
     item.innerHTML = `
       <div class="session-item-content">
         <div class="session-item-title">${escapeHtml(sessionTitle)}</div>
-        <div class="session-item-time">${new Date(sessionTime).toLocaleString()}</div>
+        <div class="session-item-time">${timeString}</div>
+        <div class="session-item-id">${escapeHtml(sessionIdNumber)}</div>
       </div>
       <button class="session-item-delete" title="删除会话" onclick="event.stopPropagation(); deleteSession('${sessionId}')">×</button>
     `;
@@ -314,6 +528,8 @@ function createNewSession() {
   // 清空聊天消息和右侧卡片（新会话应该是空的）
   chatMessages.innerHTML = '';
   clearContextPanel();
+  // 显示欢迎界面
+  updateWelcomeScreen();
   // 加载会话（新会话会返回null，但清空操作已经完成）
   loadSession(sessionId);
 }
@@ -340,6 +556,8 @@ async function deleteSession(sessionId) {
           chatMessages.innerHTML = '';
           // 清空Context面板
           clearContextPanel();
+          // 显示欢迎界面
+          updateWelcomeScreen();
         }
       }
       
@@ -663,8 +881,22 @@ function filterToolResultFromContent(content, toolCalls) {
 }
 
 async function loadSession(sessionId) {
+  // 获取工具名称到展示名的映射，用于回放时补全displayName
+  let toolNameToDisplayName = {};
+  try {
+    const tools = await window.electronAPI.listTools();
+    if (Array.isArray(tools)) {
+      toolNameToDisplayName = tools.reduce((acc, t) => {
+        if (t && t.name) acc[t.name] = t.displayName || t.name;
+        return acc;
+      }, {});
+    }
+  } catch (e) {
+    console.warn('[Renderer] Failed to load tools for displayName mapping:', e);
+  }
   const sessionData = await window.electronAPI.loadSession(sessionId);
   chatMessages.innerHTML = '';
+  currentToolCallsData = []; // 清空工具调用数据
 
   // 先清空右侧卡片（无论是新会话还是已有会话，都会先清空）
   clearContextPanel();
@@ -672,17 +904,89 @@ async function loadSession(sessionId) {
   if (sessionData && sessionData.history) {
     // 处理新的历史格式（MessageHistory格式）
     if (sessionData.history.history) {
+      // 创建一个映射，用于存储tool消息的结果
+      const toolResults = new Map();
+      
+      // 第一遍：收集所有tool消息的结果
       sessionData.history.history.forEach(msg => {
+        if (msg.role === 'tool' && msg.tool_call_id) {
+          try {
+            // tool消息的content可能是JSON字符串或已经是对象
+            let result = msg.content;
+            if (typeof result === 'string') {
+              try {
+                result = JSON.parse(result);
+              } catch (e) {
+                // 如果不是JSON，保持为字符串
+                result = { content: result };
+              }
+            }
+            toolResults.set(msg.tool_call_id, result);
+          } catch (e) {
+            console.warn('[Renderer] Failed to parse tool result:', e);
+          }
+        }
+      });
+      
+      // 第二遍：处理user和assistant消息
+      sessionData.history.history.forEach(msg => {
+        // 跳过tool消息（它们的结果已经收集到toolResults中）
+        if (msg.role === 'tool') {
+          return;
+        }
+        
         // 跳过空消息（没有内容且没有工具调用）
         const content = msg.content || '';
-        const toolCalls = msg.toolCalls || null;
-        if (!content.trim() && (!toolCalls || toolCalls.length === 0)) {
+        // 优先使用tool_calls（OpenAI标准格式），兼容旧格式toolCalls
+        const toolCallsRaw = msg.tool_calls || msg.toolCalls || null;
+        
+        if (!content.trim() && (!toolCallsRaw || toolCallsRaw.length === 0)) {
           return; // 跳过空消息
         }
         
         // 还原占位符（简单处理，实际应该更复杂）
         let processedContent = content.replace(/\[CODE_(\d+)\]/g, '[代码片段]');
         processedContent = processedContent.replace(/\[TOOL_(\d+)\]/g, '[工具调用结果]');
+        
+        // 转换工具调用格式：从OpenAI格式转换为UI显示格式
+        let toolCalls = null;
+        if (toolCallsRaw && Array.isArray(toolCallsRaw) && toolCallsRaw.length > 0) {
+          toolCalls = toolCallsRaw.map(tc => {
+            // 处理OpenAI格式：tc.function.arguments是JSON字符串
+            let args = {};
+            if (tc.function && tc.function.arguments) {
+              try {
+                args = JSON.parse(tc.function.arguments);
+              } catch (e) {
+                console.warn('[Renderer] Failed to parse tool call arguments:', e, tc.function.arguments);
+                args = {};
+              }
+            } else if (tc.arguments) {
+              // 兼容旧格式：tc.arguments可能是对象或字符串
+              if (typeof tc.arguments === 'string') {
+                try {
+                  args = JSON.parse(tc.arguments);
+                } catch (e) {
+                  args = {};
+                }
+              } else {
+                args = tc.arguments;
+              }
+            }
+            
+            // 获取工具调用结果（从tool消息中）
+            const result = toolResults.get(tc.id) || null;
+            
+            const resolvedName = tc.function ? tc.function.name : tc.name;
+            return {
+              id: tc.id,
+              name: resolvedName,
+              displayName: tc.displayName || toolNameToDisplayName[resolvedName] || resolvedName,
+              arguments: args,
+              result: result
+            };
+          });
+        }
         
         // 如果是assistant消息且有工具调用，过滤掉工具调用结果的JSON内容
         if (msg.role === 'assistant' && toolCalls && toolCalls.length > 0) {
@@ -696,11 +1000,75 @@ async function loadSession(sessionId) {
       });
     } else if (Array.isArray(sessionData.history)) {
       // 兼容旧格式
+      // 创建一个映射，用于存储tool消息的结果
+      const toolResults = new Map();
+      
+      // 第一遍：收集所有tool消息的结果
       sessionData.history.forEach(msg => {
+        if (msg.role === 'tool' && msg.tool_call_id) {
+          try {
+            let result = msg.content;
+            if (typeof result === 'string') {
+              try {
+                result = JSON.parse(result);
+              } catch (e) {
+                result = { content: result };
+              }
+            }
+            toolResults.set(msg.tool_call_id, result);
+          } catch (e) {
+            console.warn('[Renderer] Failed to parse tool result:', e);
+          }
+        }
+      });
+      
+      // 第二遍：处理user和assistant消息
+      sessionData.history.forEach(msg => {
+        if (msg.role === 'tool') {
+          return;
+        }
+        
         const content = msg.content || '';
-        const toolCalls = msg.toolCalls || null;
-        if (!content.trim() && (!toolCalls || toolCalls.length === 0)) {
+        const toolCallsRaw = msg.tool_calls || msg.toolCalls || null;
+        
+        if (!content.trim() && (!toolCallsRaw || toolCallsRaw.length === 0)) {
           return; // 跳过空消息
+        }
+        
+        // 转换工具调用格式
+        let toolCalls = null;
+        if (toolCallsRaw && Array.isArray(toolCallsRaw) && toolCallsRaw.length > 0) {
+          toolCalls = toolCallsRaw.map(tc => {
+            let args = {};
+            if (tc.function && tc.function.arguments) {
+              try {
+                args = JSON.parse(tc.function.arguments);
+              } catch (e) {
+                args = {};
+              }
+            } else if (tc.arguments) {
+              if (typeof tc.arguments === 'string') {
+                try {
+                  args = JSON.parse(tc.arguments);
+                } catch (e) {
+                  args = {};
+                }
+              } else {
+                args = tc.arguments;
+              }
+            }
+            
+            const result = toolResults.get(tc.id) || null;
+            
+            const resolvedName = tc.function ? tc.function.name : tc.name;
+            return {
+              id: tc.id,
+              name: resolvedName,
+              displayName: tc.displayName || toolNameToDisplayName[resolvedName] || resolvedName,
+              arguments: args,
+              result: result
+            };
+          });
         }
         
         // 如果是assistant消息且有工具调用，过滤掉工具调用结果的JSON内容
@@ -722,6 +1090,8 @@ async function loadSession(sessionId) {
   }
 
   updateProgress();
+  // 更新欢迎界面显示状态
+  updateWelcomeScreen();
 }
 
 function addMessage(role, content, toolCalls = null) {
@@ -749,8 +1119,8 @@ function addMessage(role, content, toolCalls = null) {
         toolCallDiv.className = 'tool-call';
         toolCallDiv.id = `tool_${toolCall.id}`;
         
-        // 获取工具的展示名称
-        const displayName = toolDisplayNames[toolCall.name] || toolCall.name;
+        // 获取工具的展示名称（从工具实例中获取，如果没有则使用工具名称）
+        const displayName = toolCall.displayName || toolCall.name;
         
         // 检测是否失败
         const isFailed = isToolCallFailed(toolCall.result);
@@ -763,7 +1133,6 @@ function addMessage(role, content, toolCalls = null) {
           <div class="tool-call-bar">
             <span class="tool-call-status ${statusClass}"></span>
             <span class="tool-call-display-name">${escapeHtml(displayName)}</span>
-            <span class="tool-call-icon">🔍</span>
           </div>
         `;
         
@@ -825,7 +1194,22 @@ function addMessage(role, content, toolCalls = null) {
   chatMessages.appendChild(messageDiv);
   chatMessages.scrollTop = chatMessages.scrollHeight;
   
+  // 隐藏欢迎界面
+  updateWelcomeScreen();
+  
   return messageDiv;
+}
+
+// 更新欢迎界面显示状态
+function updateWelcomeScreen() {
+  if (!welcomeScreen) return;
+  
+  const hasMessages = chatMessages && chatMessages.children.length > 0;
+  if (hasMessages) {
+    welcomeScreen.classList.add('hidden');
+  } else {
+    welcomeScreen.classList.remove('hidden');
+  }
 }
 
 // 状态栏自动隐藏定时器
@@ -842,7 +1226,15 @@ function updateStatusBar(status, text) {
   }
   
   // 显示状态栏
+  // 先移除渐隐类，确保显示时为不透明
+  statusBar.classList.remove('status-bar-fade-out');
   statusBar.style.display = 'block';
+  // 根据状态切换完成样式类
+  if (status === 'completed') {
+    statusBar.classList.add('status-bar-completed');
+  } else {
+    statusBar.classList.remove('status-bar-completed');
+  }
   
   // 根据状态设置图标和文本
   let icon = '';
@@ -868,8 +1260,18 @@ function updateStatusBar(status, text) {
     case 'completed':
       icon = '✅';
       break;
+    case 'error':
+      icon = '❌';
+      // 错误状态添加错误样式类
+      statusBar.classList.add('status-bar-error');
+      break;
     default:
       icon = '⏳';
+  }
+  
+  // 如果不是错误状态，移除错误样式类
+  if (status !== 'error') {
+    statusBar.classList.remove('status-bar-error');
   }
   
   statusBarIcon.textContent = icon;
@@ -878,8 +1280,22 @@ function updateStatusBar(status, text) {
   // 如果是完成状态，3秒后自动隐藏
   if (status === 'completed') {
     statusBarHideTimer = setTimeout(() => {
-      statusBar.style.display = 'none';
-      statusBarHideTimer = null;
+      // 触发渐隐过渡
+      statusBar.classList.add('status-bar-fade-out');
+      const handleTransitionEnd = () => {
+        statusBar.removeEventListener('transitionend', handleTransitionEnd);
+        statusBar.style.display = 'none';
+        statusBar.classList.remove('status-bar-fade-out');
+        statusBar.classList.remove('status-bar-completed');
+        statusBarHideTimer = null;
+      };
+      // 监听一次过渡结束；兜底超时防止事件丢失
+      statusBar.addEventListener('transitionend', handleTransitionEnd, { once: true });
+      setTimeout(() => {
+        if (statusBar.style.display !== 'none') {
+          handleTransitionEnd();
+        }
+      }, 500);
     }, 3000);
   }
 }
@@ -1138,6 +1554,28 @@ case 'todo_complete':
       // Context选择阶段可能不需要显示在卡片中，但如果有需要可以添加
       break;
 
+    case 'summary':
+      console.log('[Renderer] Processing summary chunk', { status: chunk.status });
+      if (chunk.status === 'start') {
+        // 在总结性回答开始前，添加分割线
+        if (currentMessage && currentMessage.container) {
+          // 检查是否已经有内容片段，如果有，在最后一个内容片段之后添加分割线
+          const hasContentFragments = currentMessage.contentFragments.length > 0;
+          const hasToolCalls = currentMessage.container.querySelectorAll('.tool-call').length > 0;
+          
+          // 如果已经有内容或工具调用，添加分割线
+          if (hasContentFragments || hasToolCalls) {
+            const divider = document.createElement('div');
+            divider.className = 'summary-divider';
+            currentMessage.container.appendChild(divider);
+          }
+        }
+        updateStatusBar('executing', '正在生成总结...');
+      } else if (chunk.status === 'complete') {
+        updateStatusBar('completed', '总结已完成');
+      }
+      break;
+
     case 'content':
       console.log('[Renderer] Processing content chunk', { 
         contentLength: chunk.content ? chunk.content.length : 0,
@@ -1197,6 +1635,83 @@ case 'todo_complete':
       addOperationToPool(chunk.toolCall);
       break;
 
+    case 'tool_call_update':
+      console.log('[Renderer] Processing tool_call_update', { toolCall: chunk.toolCall });
+      updateToolCallArguments(chunk.toolCall);
+      updateOperationArguments(chunk.toolCall);
+      // 若当前正在查看该工具调用的对话框，实时刷新参数区
+      if (currentOpenToolCallId === chunk.toolCall.id) {
+        const modal = document.getElementById('toolCallModal');
+        const modalArgs = document.getElementById('toolCallModalArgs');
+        if (modal && modal.style.display === 'flex' && modalArgs) {
+          // 重新渲染参数
+          modalArgs.innerHTML = '';
+          let argsToRender = chunk.toolCall.arguments;
+          if (typeof argsToRender === 'string') {
+            try { argsToRender = JSON.parse(argsToRender); } catch (e) { /* ignore */ }
+          }
+          if (!argsToRender) {
+            modalArgs.innerHTML = '<div style="color: #808080; padding: 8px;">无参数</div>';
+          } else if (typeof argsToRender === 'object') {
+            for (const [key, value] of Object.entries(argsToRender)) {
+              const item = document.createElement('div');
+              item.className = 'tool-call-card-item';
+              const keySpan = document.createElement('span');
+              keySpan.className = 'tool-call-card-key';
+              keySpan.textContent = key + ':';
+              const valueSpan = document.createElement('span');
+              valueSpan.className = 'tool-call-card-value';
+              valueSpan.textContent = typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value);
+              item.appendChild(keySpan);
+              item.appendChild(valueSpan);
+              modalArgs.appendChild(item);
+            }
+          } else {
+            const item = document.createElement('div');
+            item.className = 'tool-call-card-item';
+            const valueSpan = document.createElement('span');
+            valueSpan.className = 'tool-call-card-value';
+            valueSpan.textContent = String(argsToRender);
+            item.appendChild(valueSpan);
+            modalArgs.appendChild(item);
+          }
+        }
+        // 同步更新操作详情对话框（如果打开的是操作对话框）
+        const opModal = document.getElementById('operationModal');
+        const opArgs = document.getElementById('operationModalArgs');
+        if (opModal && opModal.style.display === 'flex' && opArgs) {
+          opArgs.innerHTML = '';
+          let opArgsData = chunk.toolCall.arguments;
+          if (typeof opArgsData === 'string') { try { opArgsData = JSON.parse(opArgsData); } catch (e) { /* ignore */ } }
+          if (!opArgsData) {
+            opArgs.innerHTML = '<div style="color: #808080; padding: 8px;">无参数</div>';
+          } else if (typeof opArgsData === 'object') {
+            for (const [key, value] of Object.entries(opArgsData)) {
+              const item = document.createElement('div');
+              item.className = 'tool-call-card-item';
+              const keySpan = document.createElement('span');
+              keySpan.className = 'tool-call-card-key';
+              keySpan.textContent = key + ':';
+              const valueSpan = document.createElement('span');
+              valueSpan.className = 'tool-call-card-value';
+              valueSpan.textContent = typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value);
+              item.appendChild(keySpan);
+              item.appendChild(valueSpan);
+              opArgs.appendChild(item);
+            }
+          } else {
+            const item = document.createElement('div');
+            item.className = 'tool-call-card-item';
+            const valueSpan = document.createElement('span');
+            valueSpan.className = 'tool-call-card-value';
+            valueSpan.textContent = String(opArgsData);
+            item.appendChild(valueSpan);
+            opArgs.appendChild(item);
+          }
+        }
+      }
+      break;
+
     case 'tool_call_result':
       console.log('[Renderer] Processing tool_call_result', { toolCallId: chunk.toolCallId, hasResult: !!chunk.result });
       updateToolCallResult(chunk.toolCallId, chunk.result);
@@ -1207,7 +1722,10 @@ case 'todo_complete':
     case 'tool_call_error':
       console.error('[Renderer] Processing tool_call_error', { toolCallId: chunk.toolCallId, error: chunk.error });
       // 将错误信息作为结果返回
-      updateToolCallResult(chunk.toolCallId, { error: chunk.error });
+      const errorResult = { error: chunk.error };
+      updateToolCallResult(chunk.toolCallId, errorResult);
+      // 更新调用池中的操作状态
+      updateOperationInPool(chunk.toolCallId, errorResult);
       break;
 
     case 'memo_added':
@@ -1219,6 +1737,11 @@ case 'todo_complete':
 
     case 'error':
       console.error('[Renderer] Processing error chunk', { error: chunk.error });
+      // 更新状态栏显示错误
+      const errorMessage = chunk.error || '执行过程中发生未知错误';
+      updateStatusBar('error', `错误: ${errorMessage}`);
+      // 自动结束执行
+      setExecutingState(false);
       if (currentMessage) {
         // 如果没有活跃的内容片段，创建一个用于显示错误
         if (!currentMessage.activeContentFragment) {
@@ -1228,7 +1751,7 @@ case 'todo_complete':
           currentMessage.activeContentFragment = errorFragment;
           currentMessage.contentFragments.push(errorFragment);
         }
-        currentMessage.activeContentFragment.innerHTML += `<div style="color: #ff6b6b;">错误: ${chunk.error}</div>`;
+        currentMessage.activeContentFragment.innerHTML += `<div style="color: #ff6b6b;">错误: ${errorMessage}</div>`;
       }
       break;
 
@@ -1246,14 +1769,13 @@ function addToolCall(toolCall) {
   toolCallDiv.className = 'tool-call';
   toolCallDiv.id = `tool_${toolCall.id}`;
   
-  // 获取工具的展示名称
-  const displayName = toolDisplayNames[toolCall.name] || toolCall.name;
+  // 获取工具的展示名称（从工具实例中获取，如果没有则使用工具名称）
+  const displayName = toolCall.displayName || toolCall.name;
   
   toolCallDiv.innerHTML = `
     <div class="tool-call-bar">
       <span class="tool-call-status pending"></span>
       <span class="tool-call-display-name">${escapeHtml(displayName)}</span>
-      <span class="tool-call-icon">🔍</span>
     </div>
   `;
 
@@ -1483,6 +2005,32 @@ function updateToolCallResult(toolCallId, result) {
   }
 }
 
+// 更新工具调用的参数（用于接收tool_call_update事件）
+function updateToolCallArguments(toolCall) {
+  if (!toolCall || !toolCall.id) return;
+  // 更新当前消息中的工具调用数据
+  const toolCallData = currentToolCallsData.find(tc => tc.id === toolCall.id);
+  if (toolCallData) {
+    let args = toolCall.arguments;
+    if (typeof args === 'string') {
+      try { args = JSON.parse(args); } catch (e) { /* 保持原样 */ }
+    }
+    toolCallData.arguments = args;
+  }
+}
+
+// 更新操作池中保存的参数
+function updateOperationArguments(toolCall) {
+  if (!toolCall || !toolCall.id) return;
+  const operationData = operationPoolMap.get(toolCall.id);
+  if (!operationData) return;
+  let args = toolCall.arguments;
+  if (typeof args === 'string') {
+    try { args = JSON.parse(args); } catch (e) { /* 保持原样 */ }
+  }
+  operationData.arguments = args;
+}
+
 function renderTodos(todos) {
   // 保留status字段（如果存在），否则默认为'pending'
   planningTodos = (todos || []).map((t, idx) => ({
@@ -1634,8 +2182,8 @@ function addOperationToPool(toolCall, shouldExpand = true) {
     return;
   }
   
-  // 获取工具的展示名称
-  const displayName = toolDisplayNames[toolCall.name] || toolCall.name;
+  // 获取工具的展示名称（从工具实例中获取，如果没有则使用工具名称）
+  const displayName = toolCall.displayName || toolCall.name;
   
   // 获取toolcall id的末尾6位
   const shortId = String(toolCall.id).length > 6 ? String(toolCall.id).slice(-6) : String(toolCall.id);

@@ -5,6 +5,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getAppState: () => ipcRenderer.invoke('get-app-state'),
   getWorkDirectory: () => ipcRenderer.invoke('get-work-directory'),
   selectWorkDirectory: () => ipcRenderer.invoke('select-work-directory'),
+  getRecentDirectories: () => ipcRenderer.invoke('get-recent-directories'),
+  switchWorkDirectory: (directory) => ipcRenderer.invoke('switch-work-directory', directory),
   
   // 设置
   openSettings: () => ipcRenderer.invoke('open-settings'),
@@ -33,9 +35,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   
   // 工具调用
   callTool: (toolName, args) => ipcRenderer.invoke('call-tool', toolName, args),
+  listTools: () => ipcRenderer.invoke('list-tools'),
   
   // 日志相关
   log: (level, ...args) => {
     ipcRenderer.invoke('renderer-log', level, args);
-  }
+  },
+  
+  // 窗口控制
+  minimizeWindow: () => ipcRenderer.invoke('window-minimize'),
+  maximizeWindow: () => ipcRenderer.invoke('window-maximize'),
+  closeWindow: () => ipcRenderer.invoke('window-close')
 });

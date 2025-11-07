@@ -73,6 +73,34 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
+      padding: 12px 0;
+      user-select: none;
+      pointer-events: auto;
+    }
+    .settings-container {
+      position: relative;
+    }
+    .settings-drag-area {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 80px; /* 右侧留出空间给关闭按钮 */
+      height: 60px;
+      -webkit-app-region: drag;
+      z-index: 0;
+    }
+    .settings-header {
+      position: relative;
+      z-index: 1;
+    }
+    .settings-header .close-btn {
+      position: relative;
+      z-index: 2;
+      -webkit-app-region: no-drag; /* 关闭按钮区域不可拖动 */
+    }
+    .settings-section {
+      position: relative;
+      z-index: 1;
     }
     .settings-title {
       font-size: 24px;
@@ -166,6 +194,286 @@
       color: #808080;
       margin-top: 4px;
     }
+    /* 可输入下拉样式 */
+    .combo-container {
+      position: relative;
+    }
+    .combo-dropdown {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background: #2d2d2d;
+      border: 1px solid #3d3d3d;
+      border-top: none;
+      border-radius: 0 0 6px 6px;
+      max-height: 220px;
+      overflow-y: auto;
+      z-index: 10;
+      display: none;
+    }
+    .combo-option {
+      padding: 10px;
+      cursor: pointer;
+      color: #e0e0e0;
+      border-bottom: 1px solid #333333;
+    }
+    .combo-option:last-child {
+      border-bottom: none;
+    }
+    .combo-option:hover {
+      background: #3a3a3a;
+    }
+    /* Agent设置样式 */
+    .agent-config-item {
+      margin-bottom: 24px;
+      padding: 20px;
+      background: #252525;
+      border-radius: 8px;
+      border: 1px solid #3d3d3d;
+    }
+    .agent-config-header {
+      margin-bottom: 16px;
+    }
+    .agent-config-name {
+      font-size: 16px;
+      font-weight: 500;
+      color: #e0e0e0;
+      margin-bottom: 12px;
+    }
+    .agent-config-checkbox-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .agent-config-checkbox {
+      width: 16px;
+      height: 16px;
+      cursor: pointer;
+      margin: 0;
+    }
+    .agent-config-checkbox-label {
+      font-size: 13px;
+      color: #a0a0a0;
+      cursor: pointer;
+      user-select: none;
+    }
+    .agent-config-content {
+      margin-top: 12px;
+    }
+    .agent-config-content.hidden {
+      display: none;
+    }
+    .agent-custom-inputs {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .agent-custom-inputs.hidden {
+      display: none;
+    }
+    .agent-model-selector {
+      margin-bottom: 12px;
+    }
+    .agent-model-selector.hidden {
+      display: none;
+    }
+    /* 工具设置样式 */
+    .tools-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 16px;
+    }
+    .tool-card {
+      background: #252525;
+      border: 1px solid #3d3d3d;
+      border-radius: 8px;
+      padding: 20px;
+      cursor: pointer;
+      transition: all 0.2s;
+      position: relative;
+    }
+    .tool-card:hover {
+      border-color: #667eea;
+      background: #2d2d2d;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+    }
+    .tool-card.selected {
+      border-color: #667eea;
+      border-width: 2px;
+      background: #2a2a3a;
+      box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+    }
+    .tool-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 8px;
+    }
+    .tool-card-name {
+      font-size: 16px;
+      font-weight: 600;
+      color: #e0e0e0;
+      flex: 1;
+    }
+    .tool-card-detail-btn {
+      background: transparent;
+      border: none;
+      color: #a0a0a0;
+      font-size: 18px;
+      cursor: pointer;
+      padding: 4px 8px;
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 4px;
+      transition: all 0.2s;
+      flex-shrink: 0;
+    }
+    .tool-card-detail-btn:hover {
+      background: #3d3d3d;
+      color: #667eea;
+    }
+    .tool-card-description {
+      font-size: 13px;
+      color: #a0a0a0;
+      line-height: 1.5;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    /* 工具详情弹窗样式 */
+    .tool-detail-modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.7);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+    .tool-detail-modal.active {
+      display: flex;
+    }
+    .tool-detail-content {
+      background: #252525;
+      border: 1px solid #3d3d3d;
+      border-radius: 8px;
+      width: 90%;
+      max-width: 700px;
+      max-height: 80vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .tool-detail-header {
+      padding: 20px 24px;
+      border-bottom: 1px solid #3d3d3d;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .tool-detail-title {
+      font-size: 20px;
+      font-weight: 600;
+      color: #e0e0e0;
+      margin: 0;
+    }
+    .tool-detail-close {
+      background: transparent;
+      border: none;
+      color: #e0e0e0;
+      font-size: 28px;
+      cursor: pointer;
+      padding: 0;
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 4px;
+      transition: background 0.2s;
+    }
+    .tool-detail-close:hover {
+      background: #3d3d3d;
+    }
+    .tool-detail-body {
+      padding: 24px;
+      overflow-y: auto;
+      flex: 1;
+    }
+    .tool-detail-section {
+      margin-bottom: 24px;
+    }
+    .tool-detail-section:last-child {
+      margin-bottom: 0;
+    }
+    .tool-detail-section-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #667eea;
+      margin: 0 0 12px 0;
+    }
+    .tool-detail-text {
+      font-size: 14px;
+      color: #e0e0e0;
+      line-height: 1.6;
+    }
+    .tool-detail-params {
+      font-size: 14px;
+      color: #e0e0e0;
+    }
+    .tool-param-item {
+      background: #1e1e1e;
+      border: 1px solid #3d3d3d;
+      border-radius: 6px;
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+    .tool-param-item:last-child {
+      margin-bottom: 0;
+    }
+    .tool-param-name {
+      font-weight: 600;
+      color: #667eea;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .tool-param-required {
+      font-size: 12px;
+      color: #ff6b6b;
+      background: rgba(255, 107, 107, 0.1);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+    .tool-param-optional {
+      font-size: 12px;
+      color: #a0a0a0;
+      background: rgba(160, 160, 160, 0.1);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+    .tool-param-description {
+      font-size: 13px;
+      color: #a0a0a0;
+      margin-top: 6px;
+    }
+    .tool-param-type {
+      font-size: 12px;
+      color: #808080;
+      font-family: 'Courier New', monospace;
+      margin-top: 4px;
+    }
   </style>
 </head>
 <body style="background: #1e1e1e; color: #e0e0e0;">
@@ -173,9 +481,12 @@
   <div class="settings-sidebar">
     <div class="settings-sidebar-title">设置</div>
     <div class="settings-sidebar-item active" data-section="model">模型设置</div>
+    <div class="settings-sidebar-item" data-section="agent">Agent设置</div>
     <div class="settings-sidebar-item" data-section="proxy">代理设置</div>
+    <div class="settings-sidebar-item" data-section="tools">工具设置</div>
   </div>
   <div class="settings-container" id="settingsContainer">
+    <div class="settings-drag-area"></div>
     <div class="settings-header">
       <h1 class="settings-title" id="sectionTitle">模型设置</h1>
       <button id="closeBtn" class="close-btn" title="关闭">×</button>
@@ -196,9 +507,10 @@
 
       <div class="settings-group">
         <label class="settings-label">Model</label>
-        <select id="model" class="settings-select">
-          <option value="">请先填写API Key和URL，然后点击加载模型</option>
-        </select>
+        <div class="combo-container">
+          <input type="text" id="modelInput" class="settings-input" placeholder="选择或输入模型">
+          <div id="modelDropdown" class="combo-dropdown"></div>
+        </div>
         <button id="loadModelsBtn" class="settings-btn settings-btn-secondary" style="margin-top: 8px; width: 100%;">加载模型列表</button>
       </div>
 
@@ -206,6 +518,229 @@
         <label class="settings-label">最大上下文长度</label>
         <input type="number" id="maxContextLength" class="settings-input" placeholder="16384" min="1000" max="1000000">
         <div class="settings-hint">用于限制每个模型推理请求的最大上下文tokens数</div>
+      </div>
+    </div>
+
+    <!-- Agent设置 -->
+    <div class="settings-section" id="agentSection">
+      <div class="settings-hint" style="margin-bottom: 24px;">
+        为每个Agent配置独立的模型设置。如果不选择模型，将使用模型设置页面的默认模型。
+      </div>
+      
+      <!-- 思考Agent -->
+      <div class="agent-config-item" data-agent="thinking">
+        <div class="agent-config-header">
+          <div class="agent-config-name">思考Agent</div>
+          <div class="agent-config-checkbox-wrapper">
+            <input type="checkbox" class="agent-config-checkbox" id="thinkingCustomCheckbox">
+            <label for="thinkingCustomCheckbox" class="agent-config-checkbox-label">使用自定义模型API</label>
+          </div>
+        </div>
+        <div class="agent-config-content hidden" id="thinkingConfigContent">
+          <div class="agent-model-selector" id="thinkingModelSelector">
+            <div class="settings-group">
+              <label class="settings-label">选择模型</label>
+              <div class="combo-container">
+                <input type="text" id="thinkingModelInput" class="settings-input" placeholder="">
+                <div id="thinkingModelDropdown" class="combo-dropdown"></div>
+              </div>
+            </div>
+          </div>
+          <div class="agent-custom-inputs hidden" id="thinkingCustomInputs">
+            <div class="settings-group">
+              <label class="settings-label">API URL</label>
+              <input type="text" id="thinkingApiUrl" class="settings-input" placeholder="https://api.openai.com/v1">
+            </div>
+            <div class="settings-group">
+              <label class="settings-label">API Key</label>
+              <input type="password" id="thinkingApiKey" class="settings-input" placeholder="请输入API Key">
+            </div>
+            <div class="settings-group">
+              <label class="settings-label">Model Name</label>
+              <input type="text" id="thinkingModelName" class="settings-input" placeholder="输入模型名称">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Context选择Agent -->
+      <div class="agent-config-item" data-agent="contextSelection">
+        <div class="agent-config-header">
+          <div class="agent-config-name">Context选择Agent</div>
+          <div class="agent-config-checkbox-wrapper">
+            <input type="checkbox" class="agent-config-checkbox" id="contextSelectionCustomCheckbox">
+            <label for="contextSelectionCustomCheckbox" class="agent-config-checkbox-label">使用自定义模型API</label>
+          </div>
+        </div>
+        <div class="agent-config-content hidden" id="contextSelectionConfigContent">
+          <div class="agent-model-selector" id="contextSelectionModelSelector">
+            <div class="settings-group">
+              <label class="settings-label">选择模型</label>
+              <div class="combo-container">
+                <input type="text" id="contextSelectionModelInput" class="settings-input" placeholder="">
+                <div id="contextSelectionModelDropdown" class="combo-dropdown"></div>
+              </div>
+            </div>
+          </div>
+          <div class="agent-custom-inputs hidden" id="contextSelectionCustomInputs">
+            <div class="settings-group">
+              <label class="settings-label">API URL</label>
+              <input type="text" id="contextSelectionApiUrl" class="settings-input" placeholder="https://api.openai.com/v1">
+            </div>
+            <div class="settings-group">
+              <label class="settings-label">API Key</label>
+              <input type="password" id="contextSelectionApiKey" class="settings-input" placeholder="请输入API Key">
+            </div>
+            <div class="settings-group">
+              <label class="settings-label">Model Name</label>
+              <input type="text" id="contextSelectionModelName" class="settings-input" placeholder="输入模型名称">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 规划Agent -->
+      <div class="agent-config-item" data-agent="planning">
+        <div class="agent-config-header">
+          <div class="agent-config-name">规划Agent</div>
+          <div class="agent-config-checkbox-wrapper">
+            <input type="checkbox" class="agent-config-checkbox" id="planningCustomCheckbox">
+            <label for="planningCustomCheckbox" class="agent-config-checkbox-label">使用自定义模型API</label>
+          </div>
+        </div>
+        <div class="agent-config-content hidden" id="planningConfigContent">
+          <div class="agent-model-selector" id="planningModelSelector">
+            <div class="settings-group">
+              <label class="settings-label">选择模型</label>
+              <div class="combo-container">
+                <input type="text" id="planningModelInput" class="settings-input" placeholder="">
+                <div id="planningModelDropdown" class="combo-dropdown"></div>
+              </div>
+            </div>
+          </div>
+          <div class="agent-custom-inputs hidden" id="planningCustomInputs">
+            <div class="settings-group">
+              <label class="settings-label">API URL</label>
+              <input type="text" id="planningApiUrl" class="settings-input" placeholder="https://api.openai.com/v1">
+            </div>
+            <div class="settings-group">
+              <label class="settings-label">API Key</label>
+              <input type="password" id="planningApiKey" class="settings-input" placeholder="请输入API Key">
+            </div>
+            <div class="settings-group">
+              <label class="settings-label">Model Name</label>
+              <input type="text" id="planningModelName" class="settings-input" placeholder="输入模型名称">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 反思Agent -->
+      <div class="agent-config-item" data-agent="reflection">
+        <div class="agent-config-header">
+          <div class="agent-config-name">反思Agent</div>
+          <div class="agent-config-checkbox-wrapper">
+            <input type="checkbox" class="agent-config-checkbox" id="reflectionCustomCheckbox">
+            <label for="reflectionCustomCheckbox" class="agent-config-checkbox-label">使用自定义模型API</label>
+          </div>
+        </div>
+        <div class="agent-config-content hidden" id="reflectionConfigContent">
+          <div class="agent-model-selector" id="reflectionModelSelector">
+            <div class="settings-group">
+              <label class="settings-label">选择模型</label>
+              <div class="combo-container">
+                <input type="text" id="reflectionModelInput" class="settings-input" placeholder="">
+                <div id="reflectionModelDropdown" class="combo-dropdown"></div>
+              </div>
+            </div>
+          </div>
+          <div class="agent-custom-inputs hidden" id="reflectionCustomInputs">
+            <div class="settings-group">
+              <label class="settings-label">API URL</label>
+              <input type="text" id="reflectionApiUrl" class="settings-input" placeholder="https://api.openai.com/v1">
+            </div>
+            <div class="settings-group">
+              <label class="settings-label">API Key</label>
+              <input type="password" id="reflectionApiKey" class="settings-input" placeholder="请输入API Key">
+            </div>
+            <div class="settings-group">
+              <label class="settings-label">Model Name</label>
+              <input type="text" id="reflectionModelName" class="settings-input" placeholder="输入模型名称">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 交互Agent -->
+      <div class="agent-config-item" data-agent="interaction">
+        <div class="agent-config-header">
+          <div class="agent-config-name">交互Agent</div>
+          <div class="agent-config-checkbox-wrapper">
+            <input type="checkbox" class="agent-config-checkbox" id="interactionCustomCheckbox">
+            <label for="interactionCustomCheckbox" class="agent-config-checkbox-label">使用自定义模型API</label>
+          </div>
+        </div>
+        <div class="agent-config-content hidden" id="interactionConfigContent">
+          <div class="agent-model-selector" id="interactionModelSelector">
+            <div class="settings-group">
+              <label class="settings-label">选择模型</label>
+              <div class="combo-container">
+                <input type="text" id="interactionModelInput" class="settings-input" placeholder="">
+                <div id="interactionModelDropdown" class="combo-dropdown"></div>
+              </div>
+            </div>
+          </div>
+          <div class="agent-custom-inputs hidden" id="interactionCustomInputs">
+            <div class="settings-group">
+              <label class="settings-label">API URL</label>
+              <input type="text" id="interactionApiUrl" class="settings-input" placeholder="https://api.openai.com/v1">
+            </div>
+            <div class="settings-group">
+              <label class="settings-label">API Key</label>
+              <input type="password" id="interactionApiKey" class="settings-input" placeholder="请输入API Key">
+            </div>
+            <div class="settings-group">
+              <label class="settings-label">Model Name</label>
+              <input type="text" id="interactionModelName" class="settings-input" placeholder="输入模型名称">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Context压缩Agent -->
+      <div class="agent-config-item" data-agent="compression">
+        <div class="agent-config-header">
+          <div class="agent-config-name">Context压缩Agent</div>
+          <div class="agent-config-checkbox-wrapper">
+            <input type="checkbox" class="agent-config-checkbox" id="compressionCustomCheckbox">
+            <label for="compressionCustomCheckbox" class="agent-config-checkbox-label">使用自定义模型API</label>
+          </div>
+        </div>
+        <div class="agent-config-content hidden" id="compressionConfigContent">
+          <div class="agent-model-selector" id="compressionModelSelector">
+            <div class="settings-group">
+              <label class="settings-label">选择模型</label>
+              <div class="combo-container">
+                <input type="text" id="compressionModelInput" class="settings-input" placeholder="">
+                <div id="compressionModelDropdown" class="combo-dropdown"></div>
+              </div>
+            </div>
+          </div>
+          <div class="agent-custom-inputs hidden" id="compressionCustomInputs">
+            <div class="settings-group">
+              <label class="settings-label">API URL</label>
+              <input type="text" id="compressionApiUrl" class="settings-input" placeholder="https://api.openai.com/v1">
+            </div>
+            <div class="settings-group">
+              <label class="settings-label">API Key</label>
+              <input type="password" id="compressionApiKey" class="settings-input" placeholder="请输入API Key">
+            </div>
+            <div class="settings-group">
+              <label class="settings-label">Model Name</label>
+              <input type="text" id="compressionModelName" class="settings-input" placeholder="输入模型名称">
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -227,6 +762,41 @@
       </div>
     </div>
 
+    <!-- 工具设置 -->
+    <div class="settings-section" id="toolsSection">
+      <div class="settings-hint" style="margin-bottom: 24px;">
+        查看所有可用工具的详细信息，包括工具名称、描述和参数说明。
+      </div>
+      
+      <div id="toolsList" class="tools-list">
+        <!-- 工具卡片将在这里动态生成 -->
+      </div>
+    </div>
+
+  </div>
+
+  <!-- 工具详情弹窗 -->
+  <div id="toolDetailModal" class="tool-detail-modal">
+    <div class="tool-detail-content">
+      <div class="tool-detail-header">
+        <h2 id="toolDetailTitle" class="tool-detail-title"></h2>
+        <button id="toolDetailClose" class="tool-detail-close">×</button>
+      </div>
+      <div class="tool-detail-body">
+        <div class="tool-detail-section">
+          <h3 class="tool-detail-section-title">工具名称</h3>
+          <div id="toolDetailName" class="tool-detail-text"></div>
+        </div>
+        <div class="tool-detail-section">
+          <h3 class="tool-detail-section-title">工具描述</h3>
+          <div id="toolDetailDescription" class="tool-detail-text"></div>
+        </div>
+        <div class="tool-detail-section">
+          <h3 class="tool-detail-section-title">参数说明</h3>
+          <div id="toolDetailParams" class="tool-detail-params"></div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script src="settings.js"></script>

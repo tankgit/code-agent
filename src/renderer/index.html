@@ -18,10 +18,18 @@
 <body>
   <!-- 工作目录选择界面 -->
   <div id="workDirSelect" class="work-dir-select">
+    <!-- 顶部工具栏 -->
+    <div class="work-dir-top-bar">
+      <div class="work-dir-top-bar-drag"></div>
+      <div class="work-dir-window-controls">
+        <button id="workDirCloseBtn" class="window-control-btn close-btn" title="关闭">×</button>
+      </div>
+    </div>
     <div class="work-dir-content">
       <h1>Code Agent</h1>
       <p>请选择您的工作目录</p>
       <button id="selectDirBtn" class="select-dir-btn">选择工作目录</button>
+      <div id="workDirRecentDirsList" class="work-dir-recent-dirs-list"></div>
     </div>
   </div>
 
@@ -29,11 +37,40 @@
   <div id="mainApp" class="main-app" style="display: none;">
     <!-- 顶部工具栏 -->
     <div class="top-bar">
-      <div class="work-dir-info">
-        <span id="workDirPath"></span>
-        <button id="changeDirBtn" class="change-dir-btn" title="重新选择工作目录">🔄 更换</button>
+      <div class="top-bar-left">
+        <button id="appTitleBtn" class="app-title-btn" title="返回工作目录选择">Code Agent</button>
       </div>
-      <button id="settingsBtn" class="settings-btn">⚙️ 设置</button>
+      <div class="top-bar-center">
+        <div class="work-dir-container">
+          <span id="workDirPath" class="work-dir-path"></span>
+          <div class="recent-dirs-dropdown">
+            <button id="recentDirsBtn" class="recent-dirs-btn" title="最近打开的项目">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </button>
+            <div id="recentDirsDropdown" class="recent-dirs-dropdown-menu" style="display: none;">
+              <div id="recentDirsList" class="recent-dirs-list"></div>
+            </div>
+          </div>
+          <button id="changeDirBtn" class="change-dir-btn" title="重新选择工作目录">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M3 7h5l2 2h11v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+              <path d="M3 7V5a2 2 0 0 1 2-2h6l2 2"></path>
+              <path d="M13 13a4 4 0 1 0 4 4"></path>
+              <path d="M17 17h3m0 0v-3"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+      <div class="top-bar-right">
+        <button id="settingsBtn" class="settings-btn">⚙️</button>
+        <div class="window-controls">
+          <button id="minimizeBtn" class="window-control-btn minimize-btn" title="最小化">−</button>
+          <button id="maximizeBtn" class="window-control-btn maximize-btn" title="最大化">□</button>
+          <button id="closeBtn" class="window-control-btn close-btn" title="关闭">×</button>
+        </div>
+      </div>
     </div>
 
     <!-- 主内容区 -->
@@ -56,6 +93,14 @@
           <span id="progressText" class="progress-text">0 / 16384 tokens</span>
         </div>
         <div id="chatMessages" class="chat-messages"></div>
+        <div id="welcomeScreen" class="welcome-screen">
+          <div class="welcome-content">
+            <h1 class="welcome-title">🤖 Code Agent</h1>
+            <p class="welcome-description">欢迎使用 Code Agent！</p>
+            <p class="welcome-hint">💬 您可以在下方输入框中对当前代码仓库进行提问</p>
+            <p class="welcome-hint">✨ 我会帮助您理解代码、查找文件、分析问题等</p>
+          </div>
+        </div>
         <div id="statusBar" class="status-bar" style="display: none;">
           <div class="status-bar-content">
             <span class="status-bar-icon"></span>

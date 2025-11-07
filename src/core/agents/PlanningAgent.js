@@ -10,19 +10,48 @@ class PlanningAgent extends Agent {
     this.name = 'PlanningAgent';
   }
 
-  getSystemPrompt() {
+  getSystemPrompt(tools = []) {
     const basePrompt = promptLoader.load('PlanningAgent');
     const workDirInfo = this.workDirectory 
       ? `\n\n重要提示：当前工作目录路径为：${this.workDirectory}\n所有文件操作和路径引用都应该基于此工作目录。`
       : '\n\n重要提示：工作目录未设置。';
-    return basePrompt + workDirInfo;
+    
+    // 添加工具信息
+    let toolsInfo = '';
+    if (tools && tools.length > 0) {
+      toolsInfo = '\n\n可用工具列表：\n';
+      tools.forEach((tool, index) => {
+        toolsInfo += `${index + 1}. ${tool.displayName} (${tool.name})\n`;
+        toolsInfo += `   描述：${tool.description}\n`;
+        if (tool.schema && tool.schema.properties) {
+          const requiredParams = tool.schema.required || [];
+          const properties = tool.schema.properties;
+          toolsInfo += `   参数：\n`;
+          Object.keys(properties).forEach(paramName => {
+            const param = properties[paramName];
+            const isRequired = requiredParams.includes(paramName);
+            toolsInfo += `     - ${paramName} (${param.type || 'unknown'})${isRequired ? ' [必填]' : ' [可选]'}`;
+            if (param.description) {
+              toolsInfo += `: ${param.description}`;
+            }
+            toolsInfo += '\n';
+          });
+        }
+        toolsInfo += '\n';
+      });
+    } else {
+      toolsInfo = '\n\n可用工具列表：无可用工具。\n';
+    }
+    
+    return basePrompt + workDirInfo + toolsInfo;
   }
 
-  async plan(userQuery, thinkingResult, selectedContexts) {
+  async plan(userQuery, thinkingResult, selectedContexts, tools = []) {
     console.log('[PlanningAgent] plan called', { 
       userQueryLength: userQuery ? userQuery.length : 0,
       thinkingResultLength: thinkingResult ? thinkingResult.length : 0,
-      selectedContextsCount: selectedContexts ? selectedContexts.length : 0
+      selectedContextsCount: selectedContexts ? selectedContexts.length : 0,
+      toolsCount: tools ? tools.length : 0
     });
     
     const contextSummary = selectedContexts.map(ctx => 
@@ -39,7 +68,7 @@ ${contextSummary || '无'}
 
 请制定详细的任务计划，输出JSON格式的TODO列表。`;
 
-    const systemPrompt = this.getSystemPrompt();
+    const systemPrompt = this.getSystemPrompt(tools);
     const messages = [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: prompt }

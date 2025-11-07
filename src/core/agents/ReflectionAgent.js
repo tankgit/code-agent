@@ -10,21 +10,50 @@ class ReflectionAgent extends Agent {
     this.name = 'ReflectionAgent';
   }
 
-  getSystemPrompt() {
+  getSystemPrompt(tools = []) {
     const basePrompt = promptLoader.load('ReflectionAgent');
     const workDirInfo = this.workDirectory 
       ? `\n\n重要提示：当前工作目录路径为：${this.workDirectory}\n所有文件操作和路径引用都应该基于此工作目录。`
       : '\n\n重要提示：工作目录未设置。';
-    return basePrompt + workDirInfo;
+    
+    // 添加工具信息
+    let toolsInfo = '';
+    if (tools && tools.length > 0) {
+      toolsInfo = '\n\n可用工具列表：\n';
+      tools.forEach((tool, index) => {
+        toolsInfo += `${index + 1}. ${tool.displayName} (${tool.name})\n`;
+        toolsInfo += `   描述：${tool.description}\n`;
+        if (tool.schema && tool.schema.properties) {
+          const requiredParams = tool.schema.required || [];
+          const properties = tool.schema.properties;
+          toolsInfo += `   参数：\n`;
+          Object.keys(properties).forEach(paramName => {
+            const param = properties[paramName];
+            const isRequired = requiredParams.includes(paramName);
+            toolsInfo += `     - ${paramName} (${param.type || 'unknown'})${isRequired ? ' [必填]' : ' [可选]'}`;
+            if (param.description) {
+              toolsInfo += `: ${param.description}`;
+            }
+            toolsInfo += '\n';
+          });
+        }
+        toolsInfo += '\n';
+      });
+    } else {
+      toolsInfo = '\n\n可用工具列表：无可用工具。\n';
+    }
+    
+    return basePrompt + workDirInfo + toolsInfo;
   }
 
-  async reflect(todoItem, executionResult, userQuery, allTodos, memoPool) {
+  async reflect(todoItem, executionResult, userQuery, allTodos, memoPool, tools = []) {
     console.log('[ReflectionAgent] reflect called', { 
       todoItem: todoItem?.title,
       executionResultSuccess: executionResult?.success,
       outputLength: executionResult?.output?.length || 0,
       allTodosCount: allTodos ? allTodos.length : 0,
-      memoPoolCount: memoPool ? memoPool.length : 0
+      memoPoolCount: memoPool ? memoPool.length : 0,
+      toolsCount: tools ? tools.length : 0
     });
     
     const memoSummary = memoPool.map(m => `${m.title}: ${m.content.substring(0, 100)}`).join('\n');
@@ -45,7 +74,7 @@ ${memoSummary || '无'}
 
 请判断执行结果，输出SUCCESS、RETRY或REPLAN。如果需要调整，请说明原因。`;
 
-    const systemPrompt = this.getSystemPrompt();
+    const systemPrompt = this.getSystemPrompt(tools);
     const messages = [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: prompt }

@@ -15,6 +15,7 @@ const LsTool = require('./core/tools/LsTool');
 const ReadFileTool = require('./core/tools/ReadFileTool');
 const SearchTextTool = require('./core/tools/SearchTextTool');
 const SearchFileTool = require('./core/tools/SearchFileTool');
+const FileInfoTool = require('./core/tools/FileInfoTool');
 
 let mainWindow = null;
 let settingsWindow = null;
@@ -22,6 +23,7 @@ let settingsWindow = null;
 // 存储应用状态
 const appState = {
   workDirectory: null,
+  recentDirectories: [],
   settings: {
     apiKey: '',
     apiUrl: 'https://api.openai.com/v1',
@@ -41,8 +43,10 @@ async function loadConfig() {
     const config = JSON.parse(data);
     appState.settings = { ...appState.settings, ...config.settings };
     appState.workDirectory = config.workDirectory || null;
+    appState.recentDirectories = config.recentDirectories || [];
   } catch (error) {
     // 配置文件不存在或读取失败，使用默认值
+    appState.recentDirectories = [];
   }
 }
 
@@ -52,17 +56,36 @@ async function saveConfig() {
     const configPath = path.join(app.getPath('userData'), 'config.json');
     await fs.writeFile(configPath, JSON.stringify({
       settings: appState.settings,
-      workDirectory: appState.workDirectory
+      workDirectory: appState.workDirectory,
+      recentDirectories: appState.recentDirectories || []
     }, null, 2));
   } catch (error) {
     console.error('Failed to save config:', error);
   }
 }
 
+// 更新最近目录列表
+function updateRecentDirectories(directory) {
+  if (!directory) return;
+  
+  // 移除已存在的相同目录
+  appState.recentDirectories = (appState.recentDirectories || []).filter(dir => dir !== directory);
+  
+  // 将新目录添加到最前面
+  appState.recentDirectories.unshift(directory);
+  
+  // 只保留最近5个
+  appState.recentDirectories = appState.recentDirectories.slice(0, 5);
+  
+  // 保存配置
+  saveConfig();
+}
+
 function createMainWindow() {
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
+    frame: false, // 去掉系统级边框
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
@@ -116,15 +139,7 @@ function createSettingsWindow() {
   // 设置设置窗口的日志监听
   setupRendererLogging(settingsWindow.webContents);
 
-  // 点击窗口外部时关闭（无边框窗口）
-  settingsWindow.on('blur', () => {
-    // 延迟关闭，避免点击其他窗口时误关闭
-    setTimeout(() => {
-      if (settingsWindow && !settingsWindow.isFocused()) {
-        settingsWindow.close();
-      }
-    }, 100);
-  });
+  // 保持设置窗口在失焦时不自动关闭，避免切换窗口或点击外部导致关闭
 
   settingsWindow.on('closed', () => {
     settingsWindow = null;
@@ -169,6 +184,7 @@ ipcMain.handle('select-work-directory', async () => {
       }
       
       appState.workDirectory = newWorkDirectory;
+      updateRecentDirectories(newWorkDirectory);
       await saveConfig();
       return appState.workDirectory;
     }
@@ -183,6 +199,35 @@ ipcMain.handle('get-work-directory', () => {
   return appState.workDirectory;
 });
 
+ipcMain.handle('get-recent-directories', () => {
+  return appState.recentDirectories || [];
+});
+
+ipcMain.handle('switch-work-directory', async (event, directory) => {
+  try {
+    if (!directory) {
+      return false;
+    }
+    
+    // 如果切换了工作目录，需要清理当前会话管理器
+    if (appState.workDirectory !== directory) {
+      // 清理旧工作目录的会话管理器
+      Object.keys(sessionManagers).forEach(sessionId => {
+        delete sessionManagers[sessionId];
+      });
+      console.log('[Main] Cleared session managers due to work directory change');
+    }
+    
+    appState.workDirectory = directory;
+    updateRecentDirectories(directory);
+    await saveConfig();
+    return true;
+  } catch (error) {
+    console.error('Error in switch-work-directory:', error);
+    throw error;
+  }
+});
+
 ipcMain.handle('open-settings', () => {
   createSettingsWindow();
 });
@@ -191,9 +236,39 @@ ipcMain.handle('get-settings', () => {
   return appState.settings;
 });
 
+// 窗口控制
+ipcMain.handle('window-minimize', () => {
+  if (mainWindow) {
+    mainWindow.minimize();
+  }
+});
+
+ipcMain.handle('window-maximize', () => {
+  if (mainWindow) {
+    if (mainWindow.isMaximized()) {
+      mainWindow.unmaximize();
+    } else {
+      mainWindow.maximize();
+    }
+  }
+});
+
+ipcMain.handle('window-close', () => {
+  if (mainWindow) {
+    mainWindow.close();
+  }
+});
+
 ipcMain.handle('save-settings', async (event, settings) => {
   appState.settings = { ...appState.settings, ...settings };
   await saveConfig();
+  
+  // 清理所有sessionManagers，确保下次使用时使用新设置
+  Object.keys(sessionManagers).forEach(sessionId => {
+    delete sessionManagers[sessionId];
+  });
+  console.log('[Main] Cleared session managers due to settings update');
+  
   return true;
 });
 
@@ -391,12 +466,24 @@ function getSessionManager(sessionId) {
       throw new Error('工作目录未设置，请先选择工作目录');
     }
     
-    const tools = [
+    // 创建所有可用工具
+    const allTools = [
       new LsTool(appState.workDirectory),
       new ReadFileTool(appState.workDirectory),
       new SearchTextTool(appState.workDirectory),
-      new SearchFileTool(appState.workDirectory)
+      new SearchFileTool(appState.workDirectory),
+      new FileInfoTool(appState.workDirectory)
     ];
+    
+    // 根据设置中的enabledTools过滤工具
+    const enabledTools = appState.settings.enabledTools || [];
+    let tools = allTools;
+    if (enabledTools.length > 0) {
+      // 如果设置了enabledTools，只使用被选中的工具
+      const enabledToolsSet = new Set(enabledTools);
+      tools = allTools.filter(tool => enabledToolsSet.has(tool.name));
+    }
+    
     sessionManagers[sessionId] = {
       manager: new AgentManager(appState.settings, appState.workDirectory, tools),
       context: new Context(),
@@ -666,6 +753,20 @@ ipcMain.handle('send-message', async (event, message, sessionId) => {
       } else if (chunk.type === 'tool_call_start') {
         // 工具调用开始，添加操作到操作池
         if (chunk.toolCall) {
+          // 如果 chunk 中没有 displayName，从工具实例中获取（作为备用）
+          if (!chunk.toolCall.displayName) {
+            const tools = [
+              new LsTool(appState.workDirectory),
+              new ReadFileTool(appState.workDirectory),
+              new SearchTextTool(appState.workDirectory),
+              new SearchFileTool(appState.workDirectory)
+            ];
+            const toolInstance = tools.find(t => t.name === chunk.toolCall.name);
+            if (toolInstance) {
+              chunk.toolCall.displayName = toolInstance.displayName;
+            }
+          }
+          
           const operation = {
             id: chunk.toolCall.id,
             tool: chunk.toolCall.name,
@@ -686,6 +787,18 @@ ipcMain.handle('send-message', async (event, message, sessionId) => {
             console.log('[Main] Operation result updated in pool', { id: chunk.toolCallId });
           } else {
             console.warn('[Main] Operation not found in pool when updating result', { toolCallId: chunk.toolCallId });
+          }
+        }
+      } else if (chunk.type === 'tool_call_error') {
+        // 工具调用错误，更新操作池中的操作
+        if (chunk.toolCallId && chunk.error) {
+          const operationPool = context.operationPool || [];
+          const operation = operationPool.find(op => op.id === chunk.toolCallId);
+          if (operation) {
+            operation.result = { error: chunk.error };
+            console.log('[Main] Operation error result updated in pool', { id: chunk.toolCallId, error: chunk.error });
+          } else {
+            console.warn('[Main] Operation not found in pool when updating error', { toolCallId: chunk.toolCallId });
           }
         }
       } else if (chunk.type === 'content') {
@@ -794,20 +907,47 @@ ipcMain.handle('call-tool', async (event, toolName, args) => {
     throw new Error('工作目录未设置，请先选择工作目录');
   }
   
-  const tools = [
+  // 创建所有可用工具
+  const allTools = [
     new LsTool(appState.workDirectory),
     new ReadFileTool(appState.workDirectory),
     new SearchTextTool(appState.workDirectory),
-    new SearchFileTool(appState.workDirectory)
+    new SearchFileTool(appState.workDirectory),
+    new FileInfoTool(appState.workDirectory)
   ];
+  
+  // 根据设置中的enabledTools过滤工具
+  const enabledTools = appState.settings.enabledTools || [];
+  let tools = allTools;
+  if (enabledTools.length > 0) {
+    const enabledToolsSet = new Set(enabledTools);
+    tools = allTools.filter(tool => enabledToolsSet.has(tool.name));
+  }
   
   const tool = tools.find(t => t.name === toolName);
   if (!tool) {
-    throw new Error(`Unknown tool: ${toolName}`);
+    throw new Error(`Unknown tool: ${toolName} (可能已被禁用)`);
   }
   
   console.log('[Main] call-tool executing', { toolName, args, workDirectory: appState.workDirectory });
   return await tool.execute(args);
+});
+
+// 列出可用工具（仅名称与展示名）
+ipcMain.handle('list-tools', async () => {
+  const tools = [
+    new LsTool(appState.workDirectory || '/'),
+    new ReadFileTool(appState.workDirectory || '/'),
+    new SearchTextTool(appState.workDirectory || '/'),
+    new SearchFileTool(appState.workDirectory || '/'),
+    new FileInfoTool(appState.workDirectory || '/')
+  ];
+  return tools.map(t => ({
+    name: t.name,
+    displayName: t.displayName,
+    description: t.description,
+    schema: t.schema
+  }));
 });
 
 // 处理渲染进程的日志（转发到主进程的日志系统）

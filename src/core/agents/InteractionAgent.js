@@ -55,7 +55,8 @@ class InteractionAgent extends Agent {
       totalMessagesCount: messages.length
     });
 
-    const toolDefinitions = tools.map(tool => ({
+    // 确保只使用传入的工具列表（应该已经是过滤后的）
+    const toolDefinitions = (tools || []).map(tool => ({
       type: 'function',
       function: {
         name: tool.name,
@@ -63,7 +64,16 @@ class InteractionAgent extends Agent {
         parameters: tool.schema
       }
     }));
-    console.log('[InteractionAgent] Tool definitions prepared', { toolsCount: toolDefinitions.length, toolNames: tools.map(t => t.name) });
+    console.log('[InteractionAgent] Tool definitions prepared', { 
+      toolsCount: toolDefinitions.length, 
+      toolNames: (tools || []).map(t => t.name),
+      toolDisplayNames: (tools || []).map(t => t.displayName)
+    });
+    
+    // 如果没有工具，记录警告
+    if (toolDefinitions.length === 0) {
+      console.warn('[InteractionAgent] No tools available for interaction');
+    }
 
     let fullContent = '';
     const toolCallsMap = new Map(); // 使用Map存储增量工具调用
@@ -120,29 +130,45 @@ class InteractionAgent extends Agent {
               }
             }
             
-            // 如果工具名称已经获得且还没有yield过，立即yield tool_call_start
+            // 如果工具名称已经获得且还没有yield过，尝试yield tool_call_start
+            // 但只有在参数至少有一些内容（不是空字符串）时才yield，避免显示空参数
             if (toolCall.function.name && !toolCallsYielded.has(index)) {
-              toolCallsYielded.add(index);
               // 尝试解析参数（可能不完整）
               let args = {};
+              let hasValidArgs = false;
               try {
-                if (toolCall.function.arguments) {
-                  args = JSON.parse(toolCall.function.arguments || '{}');
+                if (toolCall.function.arguments && toolCall.function.arguments.trim().length > 0) {
+                  // 尝试解析，如果失败说明参数还不完整
+                  args = JSON.parse(toolCall.function.arguments);
+                  // 检查是否是有效的非空对象
+                  if (args && typeof args === 'object' && Object.keys(args).length > 0) {
+                    hasValidArgs = true;
+                  }
                 }
               } catch (e) {
-                // 参数可能不完整，使用空对象
-                args = {};
+                // 参数可能不完整，暂时不yield，等待更多数据
+                // console.log('[InteractionAgent] Arguments not complete yet, waiting...', { toolCallId: toolCall.id });
               }
               
-              console.log('[InteractionAgent] Yielding tool_call_start immediately', { toolCallId: toolCall.id, toolName: toolCall.function.name, args });
-              yield { 
-                type: 'tool_call_start', 
-                toolCall: {
-                  id: toolCall.id,
-                  name: toolCall.function.name,
-                  arguments: args
-                }
-              };
+              // 只有在参数有效时才yield tool_call_start
+              // 如果参数还不完整，会在流式传输完成后通过tool_call_update更新
+              if (hasValidArgs) {
+                toolCallsYielded.add(index);
+                // 从工具实例中获取 displayName
+                const toolInstance = tools.find(t => t.name === toolCall.function.name);
+                const displayName = toolInstance ? toolInstance.displayName : toolCall.function.name;
+                
+                console.log('[InteractionAgent] Yielding tool_call_start with valid arguments', { toolCallId: toolCall.id, toolName: toolCall.function.name, displayName, args });
+                yield { 
+                  type: 'tool_call_start', 
+                  toolCall: {
+                    id: toolCall.id,
+                    name: toolCall.function.name,
+                    displayName: displayName,
+                    arguments: args
+                  }
+                };
+              }
             }
           }
         }
@@ -160,7 +186,7 @@ class InteractionAgent extends Agent {
     });
 
     // 处理完整的工具调用（执行工具调用并返回结果）
-    // 注意：tool_call_start已经在流式输出过程中yield过了，这里只执行工具调用并返回结果
+    // 注意：tool_call_start已经在流式输出过程中yield过了，这里需要更新完整的参数信息
     const toolCalls = Array.from(toolCallsMap.values());
     console.log('[InteractionAgent] Processing tool calls', { toolCallsCount: toolCalls.length, yieldedCount: toolCallsYielded.size });
     
@@ -170,36 +196,78 @@ class InteractionAgent extends Agent {
         const index = Array.from(toolCallsMap.keys())[i];
         console.log('[InteractionAgent] Processing tool call', { index: i + 1, total: toolCalls.length, toolCall });
         
-        if (!toolCall.function.name) {
-          console.warn('[InteractionAgent] Tool call has no name, skipping', { toolCall });
-          continue;
+        // 即使工具调用有问题，也要显示出来，让用户知道发生了什么
+        // 确保toolCall.id存在，如果不存在则生成一个
+        if (!toolCall.id) {
+          toolCall.id = `call_${index}_${Date.now()}`;
+          console.warn('[InteractionAgent] Tool call missing ID, generated one', { toolCallId: toolCall.id, index });
         }
         
-        const toolName = toolCall.function.name;
+        const toolName = toolCall.function.name || 'unknown_tool';
         let args = {};
+        let parseError = null;
+        
+        // 尝试解析参数
         try {
           args = JSON.parse(toolCall.function.arguments || '{}');
-          console.log('[InteractionAgent] Parsed tool arguments', { toolName, args });
+          console.log('[InteractionAgent] Parsed tool arguments (complete)', { toolName, args, argsKeys: Object.keys(args || {}) });
         } catch (e) {
+          parseError = e;
           console.error('[InteractionAgent] Failed to parse tool arguments', { toolName, error: e.message, rawArgs: toolCall.function.arguments });
-          continue;
+          // 即使解析失败，也使用原始参数字符串作为参数显示
+          args = { _raw_arguments: toolCall.function.arguments || '', _parse_error: e.message };
         }
         
-        // 如果工具调用还没有被yield过（可能在流式输出过程中没有获得名称），现在yield
+        // 从工具实例中获取 displayName
+        const toolInstance = tools.find(t => t.name === toolName);
+        const displayName = toolInstance ? toolInstance.displayName : toolName;
+        
+        // 如果工具调用还没有被yield过（可能在流式输出过程中没有获得名称或参数不完整），现在yield tool_call_start
         if (!toolCallsYielded.has(index)) {
-          console.log('[InteractionAgent] Yielding tool_call_start (missed during stream)', { toolCallId: toolCall.id, toolName, args });
+          console.log('[InteractionAgent] Yielding tool_call_start (complete arguments)', { toolCallId: toolCall.id, toolName, displayName, args, hasParseError: !!parseError });
           yield { 
             type: 'tool_call_start', 
             toolCall: {
               id: toolCall.id,
               name: toolName,
+              displayName: displayName,
               arguments: args
             }
           };
           toolCallsYielded.add(index);
+        } else {
+          // 如果已经yield过，现在yield一个更新事件，包含完整的参数信息
+          // 这确保即使流式传输过程中参数不完整，流式传输完成后也会用完整参数更新
+          console.log('[InteractionAgent] Yielding tool_call_update with complete arguments', { toolCallId: toolCall.id, toolName, displayName, args, hasParseError: !!parseError });
+          yield { 
+            type: 'tool_call_update', 
+            toolCall: {
+              id: toolCall.id,
+              name: toolName,
+              displayName: displayName,
+              arguments: args
+            }
+          };
         }
 
-        if (onToolCall) {
+        // 如果参数解析失败，直接yield错误，不执行工具调用
+        if (parseError) {
+          console.error('[InteractionAgent] Tool call skipped due to parse error', { toolName, error: parseError.message });
+          yield { 
+            type: 'tool_call_error', 
+            toolCallId: toolCall.id,
+            error: `参数解析失败: ${parseError.message}。原始参数: ${toolCall.function.arguments || '空'}`
+          };
+        } else if (!toolName || toolName === 'unknown_tool') {
+          // 如果工具名称缺失，也yield错误
+          console.error('[InteractionAgent] Tool call skipped due to missing tool name', { toolCall });
+          yield { 
+            type: 'tool_call_error', 
+            toolCallId: toolCall.id,
+            error: '工具名称缺失，无法执行工具调用'
+          };
+        } else if (onToolCall) {
+          // 参数解析成功且工具名称存在，执行工具调用
           try {
             console.log('[InteractionAgent] Calling onToolCall', { toolName, args });
             const result = await onToolCall(toolName, args);
@@ -219,6 +287,11 @@ class InteractionAgent extends Agent {
           }
         } else {
           console.warn('[InteractionAgent] onToolCall is not provided');
+          yield { 
+            type: 'tool_call_error', 
+            toolCallId: toolCall.id,
+            error: '工具调用处理器未提供'
+          };
         }
       }
     } else {
