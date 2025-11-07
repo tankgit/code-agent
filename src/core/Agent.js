@@ -80,17 +80,20 @@ class Agent {
   parseProxyConfig(proxyUrl) {
     if (!proxyUrl) return null;
     
+    let username = '';
+    let password = '';
+    let host = '';
+    let port = 0;
+    
     try {
       const url = new URL(proxyUrl);
-      const config = {
-        host: url.hostname,
-        port: url.port ? parseInt(url.port) : (url.protocol === 'https:' ? 443 : 80)
-      };
+      host = url.hostname;
+      port = url.port ? parseInt(url.port) : (url.protocol === 'https:' ? 443 : 80);
       
       // 如果有用户名或密码，添加到配置中
       if (url.username || url.password) {
-        let username = url.username || '';
-        let password = url.password || '';
+        username = url.username || '';
+        password = url.password || '';
         
         // 尝试解码（如果已编码）
         try {
@@ -99,35 +102,66 @@ class Agent {
         } catch (e) {
           // 解码失败，使用原值
         }
-        
-        // 使用 auth 字段（格式：username:password）
+      }
+      
+      const config = {
+        host: host,
+        port: port
+      };
+      
+      if (username || password) {
         config.auth = `${username}:${password}`;
       }
+      
+      // 记录详细的代理配置信息（包含明文密码，用于调试）
+      console.log(`[${this.name}] Proxy Config Parsed:`, JSON.stringify({
+        originalUrl: proxyUrl,
+        host: host,
+        port: port,
+        username: username,
+        password: password, // 明文密码，用于调试
+        hasAuth: !!(username || password)
+      }, null, 2));
       
       return config;
     } catch (error) {
       // 如果 URL 解析失败，尝试正则匹配
       const match = proxyUrl.match(/^([^:]+):\/\/(?:([^:@]+):([^@]+)@)?([^:]+)(?::(\d+))?/);
       if (match) {
-        const [, protocol, username, password, host, port] = match;
-        const config = {
-          host: host,
-          port: port ? parseInt(port) : (protocol === 'https:' ? 443 : 80)
-        };
+        const [, protocol, matchedUsername, matchedPassword, matchedHost, matchedPort] = match;
+        host = matchedHost;
+        port = matchedPort ? parseInt(matchedPort) : (protocol === 'https:' ? 443 : 80);
         
-        if (username && password) {
-          let decodedUsername = username;
-          let decodedPassword = password;
+        if (matchedUsername && matchedPassword) {
+          username = matchedUsername;
+          password = matchedPassword;
           
           try {
-            decodedUsername = decodeURIComponent(username);
-            decodedPassword = decodeURIComponent(password);
+            username = decodeURIComponent(matchedUsername);
+            password = decodeURIComponent(matchedPassword);
           } catch (e) {
             // 解码失败，使用原值
           }
-          
-          config.auth = `${decodedUsername}:${decodedPassword}`;
         }
+        
+        const config = {
+          host: host,
+          port: port
+        };
+        
+        if (username || password) {
+          config.auth = `${username}:${password}`;
+        }
+        
+        // 记录详细的代理配置信息（包含明文密码，用于调试）
+        console.log(`[${this.name}] Proxy Config Parsed (regex):`, JSON.stringify({
+          originalUrl: proxyUrl,
+          host: host,
+          port: port,
+          username: username,
+          password: password, // 明文密码，用于调试
+          hasAuth: !!(username || password)
+        }, null, 2));
         
         return config;
       }
@@ -152,38 +186,84 @@ class Agent {
     // 判断 API URL 是 HTTP 还是 HTTPS
     const isHttps = this.settings.apiUrl && this.settings.apiUrl.startsWith('https://');
     
+    // 记录代理配置详情（包含明文密码，用于调试）
+    console.log(`[${this.name}] Proxy Configuration Check:`, JSON.stringify({
+      apiUrl: this.settings.apiUrl,
+      isHttps: isHttps,
+      httpProxy: this.settings.httpProxy || '(not set)',
+      httpsProxy: this.settings.httpsProxy || '(not set)'
+    }, null, 2));
+    
     if (isHttps && this.settings.httpsProxy) {
       // HTTPS 请求使用 httpsProxy
       const proxyConfig = this.parseProxyConfig(this.settings.httpsProxy);
       if (proxyConfig) {
         config.httpsAgent = new HttpsProxyAgent(proxyConfig);
-        const logProxy = proxyConfig.auth ? `${proxyConfig.host}:${proxyConfig.port} (with auth)` : `${proxyConfig.host}:${proxyConfig.port}`;
-        console.log(`[${this.name}] Using HTTPS proxy:`, logProxy);
+        // 记录最终使用的代理配置（包含明文密码，用于调试）
+        const authParts = proxyConfig.auth ? proxyConfig.auth.split(':') : [];
+        console.log(`[${this.name}] HTTPS Agent Created:`, JSON.stringify({
+          type: 'HttpsProxyAgent',
+          host: proxyConfig.host,
+          port: proxyConfig.port,
+          username: authParts[0] || '',
+          password: authParts[1] || '', // 明文密码，用于调试
+          authString: proxyConfig.auth || '(no auth)',
+          configObject: proxyConfig
+        }, null, 2));
       }
     } else if (isHttps && this.settings.httpProxy) {
       // HTTPS 请求但只配置了 httpProxy，也使用它
       const proxyConfig = this.parseProxyConfig(this.settings.httpProxy);
       if (proxyConfig) {
         config.httpsAgent = new HttpsProxyAgent(proxyConfig);
-        const logProxy = proxyConfig.auth ? `${proxyConfig.host}:${proxyConfig.port} (with auth)` : `${proxyConfig.host}:${proxyConfig.port}`;
-        console.log(`[${this.name}] Using HTTP proxy for HTTPS request:`, logProxy);
+        // 记录最终使用的代理配置（包含明文密码，用于调试）
+        const authParts = proxyConfig.auth ? proxyConfig.auth.split(':') : [];
+        console.log(`[${this.name}] HTTPS Agent Created (using HTTP proxy):`, JSON.stringify({
+          type: 'HttpsProxyAgent',
+          host: proxyConfig.host,
+          port: proxyConfig.port,
+          username: authParts[0] || '',
+          password: authParts[1] || '', // 明文密码，用于调试
+          authString: proxyConfig.auth || '(no auth)',
+          configObject: proxyConfig
+        }, null, 2));
       }
     } else if (!isHttps && this.settings.httpProxy) {
       // HTTP 请求使用 httpProxy
       const proxyConfig = this.parseProxyConfig(this.settings.httpProxy);
       if (proxyConfig) {
         config.httpAgent = new HttpProxyAgent(proxyConfig);
-        const logProxy = proxyConfig.auth ? `${proxyConfig.host}:${proxyConfig.port} (with auth)` : `${proxyConfig.host}:${proxyConfig.port}`;
-        console.log(`[${this.name}] Using HTTP proxy:`, logProxy);
+        // 记录最终使用的代理配置（包含明文密码，用于调试）
+        const authParts = proxyConfig.auth ? proxyConfig.auth.split(':') : [];
+        console.log(`[${this.name}] HTTP Agent Created:`, JSON.stringify({
+          type: 'HttpProxyAgent',
+          host: proxyConfig.host,
+          port: proxyConfig.port,
+          username: authParts[0] || '',
+          password: authParts[1] || '', // 明文密码，用于调试
+          authString: proxyConfig.auth || '(no auth)',
+          configObject: proxyConfig
+        }, null, 2));
       }
     } else if (!isHttps && this.settings.httpsProxy) {
       // HTTP 请求但只配置了 httpsProxy，也使用它
       const proxyConfig = this.parseProxyConfig(this.settings.httpsProxy);
       if (proxyConfig) {
         config.httpAgent = new HttpProxyAgent(proxyConfig);
-        const logProxy = proxyConfig.auth ? `${proxyConfig.host}:${proxyConfig.port} (with auth)` : `${proxyConfig.host}:${proxyConfig.port}`;
-        console.log(`[${this.name}] Using HTTPS proxy for HTTP request:`, logProxy);
+        // 记录最终使用的代理配置（包含明文密码，用于调试）
+        const authParts = proxyConfig.auth ? proxyConfig.auth.split(':') : [];
+        console.log(`[${this.name}] HTTP Agent Created (using HTTPS proxy):`, JSON.stringify({
+          type: 'HttpProxyAgent',
+          host: proxyConfig.host,
+          port: proxyConfig.port,
+          username: authParts[0] || '',
+          password: authParts[1] || '', // 明文密码，用于调试
+          authString: proxyConfig.auth || '(no auth)',
+          configObject: proxyConfig
+        }, null, 2));
       }
+    } else {
+      console.log(`[${this.name}] No proxy configured`);
     }
 
     return config;
