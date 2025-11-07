@@ -73,6 +73,71 @@ class Agent {
   }
 
   /**
+   * 解析代理 URL 为配置对象
+   * @param {string} proxyUrl - 代理 URL
+   * @returns {object|null} - 代理配置对象 { host, port, auth } 或 null
+   */
+  parseProxyConfig(proxyUrl) {
+    if (!proxyUrl) return null;
+    
+    try {
+      const url = new URL(proxyUrl);
+      const config = {
+        host: url.hostname,
+        port: url.port ? parseInt(url.port) : (url.protocol === 'https:' ? 443 : 80)
+      };
+      
+      // 如果有用户名或密码，添加到配置中
+      if (url.username || url.password) {
+        let username = url.username || '';
+        let password = url.password || '';
+        
+        // 尝试解码（如果已编码）
+        try {
+          if (username) username = decodeURIComponent(username);
+          if (password) password = decodeURIComponent(password);
+        } catch (e) {
+          // 解码失败，使用原值
+        }
+        
+        // 使用 auth 字段（格式：username:password）
+        config.auth = `${username}:${password}`;
+      }
+      
+      return config;
+    } catch (error) {
+      // 如果 URL 解析失败，尝试正则匹配
+      const match = proxyUrl.match(/^([^:]+):\/\/(?:([^:@]+):([^@]+)@)?([^:]+)(?::(\d+))?/);
+      if (match) {
+        const [, protocol, username, password, host, port] = match;
+        const config = {
+          host: host,
+          port: port ? parseInt(port) : (protocol === 'https:' ? 443 : 80)
+        };
+        
+        if (username && password) {
+          let decodedUsername = username;
+          let decodedPassword = password;
+          
+          try {
+            decodedUsername = decodeURIComponent(username);
+            decodedPassword = decodeURIComponent(password);
+          } catch (e) {
+            // 解码失败，使用原值
+          }
+          
+          config.auth = `${decodedUsername}:${decodedPassword}`;
+        }
+        
+        return config;
+      }
+      
+      console.warn(`[${this.name}] Failed to parse proxy URL:`, proxyUrl);
+      return null;
+    }
+  }
+
+  /**
    * 配置HTTP客户端（包括代理设置）
    */
   getHttpConfig() {
@@ -83,31 +148,42 @@ class Agent {
       }
     };
 
-    // 配置代理 - 使用代理 agent，支持带认证的代理格式
-    // 格式：http://username:password@proxy_address:port
+    // 配置代理 - 使用配置对象方式，更兼容各种代理服务器
     // 判断 API URL 是 HTTP 还是 HTTPS
     const isHttps = this.settings.apiUrl && this.settings.apiUrl.startsWith('https://');
     
     if (isHttps && this.settings.httpsProxy) {
       // HTTPS 请求使用 httpsProxy
-      const encodedProxy = encodeProxyUrl(this.settings.httpsProxy);
-      config.httpsAgent = new HttpsProxyAgent(encodedProxy);
-      console.log(`[${this.name}] Using HTTPS proxy:`, encodedProxy.replace(/:[^:@]*@/, ':****@')); // 隐藏密码
+      const proxyConfig = this.parseProxyConfig(this.settings.httpsProxy);
+      if (proxyConfig) {
+        config.httpsAgent = new HttpsProxyAgent(proxyConfig);
+        const logProxy = proxyConfig.auth ? `${proxyConfig.host}:${proxyConfig.port} (with auth)` : `${proxyConfig.host}:${proxyConfig.port}`;
+        console.log(`[${this.name}] Using HTTPS proxy:`, logProxy);
+      }
     } else if (isHttps && this.settings.httpProxy) {
       // HTTPS 请求但只配置了 httpProxy，也使用它
-      const encodedProxy = encodeProxyUrl(this.settings.httpProxy);
-      config.httpsAgent = new HttpsProxyAgent(encodedProxy);
-      console.log(`[${this.name}] Using HTTP proxy for HTTPS request:`, encodedProxy.replace(/:[^:@]*@/, ':****@')); // 隐藏密码
+      const proxyConfig = this.parseProxyConfig(this.settings.httpProxy);
+      if (proxyConfig) {
+        config.httpsAgent = new HttpsProxyAgent(proxyConfig);
+        const logProxy = proxyConfig.auth ? `${proxyConfig.host}:${proxyConfig.port} (with auth)` : `${proxyConfig.host}:${proxyConfig.port}`;
+        console.log(`[${this.name}] Using HTTP proxy for HTTPS request:`, logProxy);
+      }
     } else if (!isHttps && this.settings.httpProxy) {
       // HTTP 请求使用 httpProxy
-      const encodedProxy = encodeProxyUrl(this.settings.httpProxy);
-      config.httpAgent = new HttpProxyAgent(encodedProxy);
-      console.log(`[${this.name}] Using HTTP proxy:`, encodedProxy.replace(/:[^:@]*@/, ':****@')); // 隐藏密码
+      const proxyConfig = this.parseProxyConfig(this.settings.httpProxy);
+      if (proxyConfig) {
+        config.httpAgent = new HttpProxyAgent(proxyConfig);
+        const logProxy = proxyConfig.auth ? `${proxyConfig.host}:${proxyConfig.port} (with auth)` : `${proxyConfig.host}:${proxyConfig.port}`;
+        console.log(`[${this.name}] Using HTTP proxy:`, logProxy);
+      }
     } else if (!isHttps && this.settings.httpsProxy) {
       // HTTP 请求但只配置了 httpsProxy，也使用它
-      const encodedProxy = encodeProxyUrl(this.settings.httpsProxy);
-      config.httpAgent = new HttpProxyAgent(encodedProxy);
-      console.log(`[${this.name}] Using HTTPS proxy for HTTP request:`, encodedProxy.replace(/:[^:@]*@/, ':****@')); // 隐藏密码
+      const proxyConfig = this.parseProxyConfig(this.settings.httpsProxy);
+      if (proxyConfig) {
+        config.httpAgent = new HttpProxyAgent(proxyConfig);
+        const logProxy = proxyConfig.auth ? `${proxyConfig.host}:${proxyConfig.port} (with auth)` : `${proxyConfig.host}:${proxyConfig.port}`;
+        console.log(`[${this.name}] Using HTTPS proxy for HTTP request:`, logProxy);
+      }
     }
 
     return config;

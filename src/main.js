@@ -285,64 +285,71 @@ ipcMain.handle('get-models', async (event) => {
     const { URL } = require('url');
     
     /**
-     * 编码代理 URL，确保用户名和密码中的特殊字符被正确转义
+     * 解析代理 URL 为配置对象
+     * @param {string} proxyUrl - 代理 URL
+     * @returns {object|null} - 代理配置对象 { host, port, auth } 或 null
      */
-    function encodeProxyUrl(proxyUrl) {
-      if (!proxyUrl) return proxyUrl;
+    function parseProxyConfig(proxyUrl) {
+      if (!proxyUrl) return null;
       
       try {
-        // 尝试使用 URL 对象解析（如果 URL 格式正确）
         const url = new URL(proxyUrl);
+        const config = {
+          host: url.hostname,
+          port: url.port ? parseInt(url.port) : (url.protocol === 'https:' ? 443 : 80)
+        };
         
-        // 如果 URL 中已经包含用户名和密码，对它们进行编码
+        // 如果有用户名或密码，添加到配置中
         if (url.username || url.password) {
-          // 先尝试解码（如果已经编码），然后重新编码以确保正确性
           let username = url.username || '';
           let password = url.password || '';
           
+          // 尝试解码（如果已编码）
           try {
-            // 尝试解码，如果失败说明未编码，直接编码
-            username = decodeURIComponent(username);
-            password = decodeURIComponent(password);
+            if (username) username = decodeURIComponent(username);
+            if (password) password = decodeURIComponent(password);
           } catch (e) {
-            // 解码失败，说明可能包含特殊字符但未编码，直接使用
+            // 解码失败，使用原值
           }
           
-          // 对用户名和密码进行编码
-          const encodedUsername = encodeURIComponent(username);
-          const encodedPassword = encodeURIComponent(password);
-          
-          // 重新构建 URL
-          url.username = encodedUsername;
-          url.password = encodedPassword;
-          return url.toString();
+          // 使用 auth 字段（格式：username:password）
+          config.auth = `${username}:${password}`;
         }
         
-        // 如果没有用户名和密码，直接返回
-        return proxyUrl;
+        return config;
       } catch (error) {
-        // 如果 URL 解析失败（可能因为特殊字符），尝试手动处理
-        // 匹配格式：protocol://username:password@host:port
+        // 如果 URL 解析失败，尝试正则匹配
         const match = proxyUrl.match(/^([^:]+):\/\/(?:([^:@]+):([^@]+)@)?([^:]+)(?::(\d+))?/);
         if (match) {
           const [, protocol, username, password, host, port] = match;
+          const config = {
+            host: host,
+            port: port ? parseInt(port) : (protocol === 'https:' ? 443 : 80)
+          };
+          
           if (username && password) {
-            // 对用户名和密码进行编码
-            const encodedUsername = encodeURIComponent(username);
-            const encodedPassword = encodeURIComponent(password);
-            const portPart = port ? `:${port}` : '';
-            return `${protocol}://${encodedUsername}:${encodedPassword}@${host}${portPart}`;
+            let decodedUsername = username;
+            let decodedPassword = password;
+            
+            try {
+              decodedUsername = decodeURIComponent(username);
+              decodedPassword = decodeURIComponent(password);
+            } catch (e) {
+              // 解码失败，使用原值
+            }
+            
+            config.auth = `${decodedUsername}:${decodedPassword}`;
           }
+          
+          return config;
         }
         
-        // 如果无法解析，返回原 URL（让代理库处理）
-        console.warn('[Main] Failed to parse proxy URL, using as-is:', proxyUrl);
-        return proxyUrl;
+        console.warn('[Main] Failed to parse proxy URL:', proxyUrl);
+        return null;
       }
     }
     
-    // 配置代理 - 使用代理 agent，支持带认证的代理格式
-    // 格式：http://username:password@proxy_address:port
+    // 配置代理 - 使用配置对象方式，更兼容各种代理服务器
     const proxyConfig = {};
     
     // 判断 API URL 是 HTTP 还是 HTTPS
@@ -350,24 +357,36 @@ ipcMain.handle('get-models', async (event) => {
     
     if (isHttps && httpsProxy) {
       // HTTPS 请求使用 httpsProxy
-      const encodedProxy = encodeProxyUrl(httpsProxy);
-      proxyConfig.httpsAgent = new HttpsProxyAgent(encodedProxy);
-      console.log('[Main] Using HTTPS proxy for models request:', encodedProxy.replace(/:[^:@]*@/, ':****@')); // 隐藏密码
+      const proxy = parseProxyConfig(httpsProxy);
+      if (proxy) {
+        proxyConfig.httpsAgent = new HttpsProxyAgent(proxy);
+        const logProxy = proxy.auth ? `${proxy.host}:${proxy.port} (with auth)` : `${proxy.host}:${proxy.port}`;
+        console.log('[Main] Using HTTPS proxy for models request:', logProxy);
+      }
     } else if (isHttps && httpProxy) {
       // HTTPS 请求但只配置了 httpProxy，也使用它
-      const encodedProxy = encodeProxyUrl(httpProxy);
-      proxyConfig.httpsAgent = new HttpsProxyAgent(encodedProxy);
-      console.log('[Main] Using HTTP proxy for HTTPS models request:', encodedProxy.replace(/:[^:@]*@/, ':****@')); // 隐藏密码
+      const proxy = parseProxyConfig(httpProxy);
+      if (proxy) {
+        proxyConfig.httpsAgent = new HttpsProxyAgent(proxy);
+        const logProxy = proxy.auth ? `${proxy.host}:${proxy.port} (with auth)` : `${proxy.host}:${proxy.port}`;
+        console.log('[Main] Using HTTP proxy for HTTPS models request:', logProxy);
+      }
     } else if (!isHttps && httpProxy) {
       // HTTP 请求使用 httpProxy
-      const encodedProxy = encodeProxyUrl(httpProxy);
-      proxyConfig.httpAgent = new HttpProxyAgent(encodedProxy);
-      console.log('[Main] Using HTTP proxy for models request:', encodedProxy.replace(/:[^:@]*@/, ':****@')); // 隐藏密码
+      const proxy = parseProxyConfig(httpProxy);
+      if (proxy) {
+        proxyConfig.httpAgent = new HttpProxyAgent(proxy);
+        const logProxy = proxy.auth ? `${proxy.host}:${proxy.port} (with auth)` : `${proxy.host}:${proxy.port}`;
+        console.log('[Main] Using HTTP proxy for models request:', logProxy);
+      }
     } else if (!isHttps && httpsProxy) {
       // HTTP 请求但只配置了 httpsProxy，也使用它
-      const encodedProxy = encodeProxyUrl(httpsProxy);
-      proxyConfig.httpAgent = new HttpProxyAgent(encodedProxy);
-      console.log('[Main] Using HTTPS proxy for HTTP models request:', encodedProxy.replace(/:[^:@]*@/, ':****@')); // 隐藏密码
+      const proxy = parseProxyConfig(httpsProxy);
+      if (proxy) {
+        proxyConfig.httpAgent = new HttpProxyAgent(proxy);
+        const logProxy = proxy.auth ? `${proxy.host}:${proxy.port} (with auth)` : `${proxy.host}:${proxy.port}`;
+        console.log('[Main] Using HTTPS proxy for HTTP models request:', logProxy);
+      }
     } else {
       console.log('[Main] No proxy configured for models request');
     }
