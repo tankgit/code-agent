@@ -282,6 +282,64 @@ ipcMain.handle('get-models', async (event) => {
     const axios = require('axios');
     const { HttpsProxyAgent } = require('https-proxy-agent');
     const { HttpProxyAgent } = require('http-proxy-agent');
+    const { URL } = require('url');
+    
+    /**
+     * 编码代理 URL，确保用户名和密码中的特殊字符被正确转义
+     */
+    function encodeProxyUrl(proxyUrl) {
+      if (!proxyUrl) return proxyUrl;
+      
+      try {
+        // 尝试使用 URL 对象解析（如果 URL 格式正确）
+        const url = new URL(proxyUrl);
+        
+        // 如果 URL 中已经包含用户名和密码，对它们进行编码
+        if (url.username || url.password) {
+          // 先尝试解码（如果已经编码），然后重新编码以确保正确性
+          let username = url.username || '';
+          let password = url.password || '';
+          
+          try {
+            // 尝试解码，如果失败说明未编码，直接编码
+            username = decodeURIComponent(username);
+            password = decodeURIComponent(password);
+          } catch (e) {
+            // 解码失败，说明可能包含特殊字符但未编码，直接使用
+          }
+          
+          // 对用户名和密码进行编码
+          const encodedUsername = encodeURIComponent(username);
+          const encodedPassword = encodeURIComponent(password);
+          
+          // 重新构建 URL
+          url.username = encodedUsername;
+          url.password = encodedPassword;
+          return url.toString();
+        }
+        
+        // 如果没有用户名和密码，直接返回
+        return proxyUrl;
+      } catch (error) {
+        // 如果 URL 解析失败（可能因为特殊字符），尝试手动处理
+        // 匹配格式：protocol://username:password@host:port
+        const match = proxyUrl.match(/^([^:]+):\/\/(?:([^:@]+):([^@]+)@)?([^:]+)(?::(\d+))?/);
+        if (match) {
+          const [, protocol, username, password, host, port] = match;
+          if (username && password) {
+            // 对用户名和密码进行编码
+            const encodedUsername = encodeURIComponent(username);
+            const encodedPassword = encodeURIComponent(password);
+            const portPart = port ? `:${port}` : '';
+            return `${protocol}://${encodedUsername}:${encodedPassword}@${host}${portPart}`;
+          }
+        }
+        
+        // 如果无法解析，返回原 URL（让代理库处理）
+        console.warn('[Main] Failed to parse proxy URL, using as-is:', proxyUrl);
+        return proxyUrl;
+      }
+    }
     
     // 配置代理 - 使用代理 agent，支持带认证的代理格式
     // 格式：http://username:password@proxy_address:port
@@ -292,20 +350,24 @@ ipcMain.handle('get-models', async (event) => {
     
     if (isHttps && httpsProxy) {
       // HTTPS 请求使用 httpsProxy
-      proxyConfig.httpsAgent = new HttpsProxyAgent(httpsProxy);
-      console.log('[Main] Using HTTPS proxy for models request:', httpsProxy.replace(/:[^:@]*@/, ':****@')); // 隐藏密码
+      const encodedProxy = encodeProxyUrl(httpsProxy);
+      proxyConfig.httpsAgent = new HttpsProxyAgent(encodedProxy);
+      console.log('[Main] Using HTTPS proxy for models request:', encodedProxy.replace(/:[^:@]*@/, ':****@')); // 隐藏密码
     } else if (isHttps && httpProxy) {
       // HTTPS 请求但只配置了 httpProxy，也使用它
-      proxyConfig.httpsAgent = new HttpsProxyAgent(httpProxy);
-      console.log('[Main] Using HTTP proxy for HTTPS models request:', httpProxy.replace(/:[^:@]*@/, ':****@')); // 隐藏密码
+      const encodedProxy = encodeProxyUrl(httpProxy);
+      proxyConfig.httpsAgent = new HttpsProxyAgent(encodedProxy);
+      console.log('[Main] Using HTTP proxy for HTTPS models request:', encodedProxy.replace(/:[^:@]*@/, ':****@')); // 隐藏密码
     } else if (!isHttps && httpProxy) {
       // HTTP 请求使用 httpProxy
-      proxyConfig.httpAgent = new HttpProxyAgent(httpProxy);
-      console.log('[Main] Using HTTP proxy for models request:', httpProxy.replace(/:[^:@]*@/, ':****@')); // 隐藏密码
+      const encodedProxy = encodeProxyUrl(httpProxy);
+      proxyConfig.httpAgent = new HttpProxyAgent(encodedProxy);
+      console.log('[Main] Using HTTP proxy for models request:', encodedProxy.replace(/:[^:@]*@/, ':****@')); // 隐藏密码
     } else if (!isHttps && httpsProxy) {
       // HTTP 请求但只配置了 httpsProxy，也使用它
-      proxyConfig.httpAgent = new HttpProxyAgent(httpsProxy);
-      console.log('[Main] Using HTTPS proxy for HTTP models request:', httpsProxy.replace(/:[^:@]*@/, ':****@')); // 隐藏密码
+      const encodedProxy = encodeProxyUrl(httpsProxy);
+      proxyConfig.httpAgent = new HttpProxyAgent(encodedProxy);
+      console.log('[Main] Using HTTPS proxy for HTTP models request:', encodedProxy.replace(/:[^:@]*@/, ':****@')); // 隐藏密码
     } else {
       console.log('[Main] No proxy configured for models request');
     }

@@ -1,6 +1,66 @@
 const axios = require('axios');
 const { HttpsProxyAgent } = require('https-proxy-agent');
 const { HttpProxyAgent } = require('http-proxy-agent');
+const { URL } = require('url');
+
+/**
+ * 编码代理 URL，确保用户名和密码中的特殊字符被正确转义
+ * @param {string} proxyUrl - 代理 URL，格式：http://username:password@proxy_address:port
+ * @returns {string} - 编码后的代理 URL
+ */
+function encodeProxyUrl(proxyUrl) {
+  if (!proxyUrl) return proxyUrl;
+  
+  try {
+    // 尝试使用 URL 对象解析（如果 URL 格式正确）
+    const url = new URL(proxyUrl);
+    
+    // 如果 URL 中已经包含用户名和密码，对它们进行编码
+    if (url.username || url.password) {
+      // 先尝试解码（如果已经编码），然后重新编码以确保正确性
+      let username = url.username || '';
+      let password = url.password || '';
+      
+      try {
+        // 尝试解码，如果失败说明未编码，直接编码
+        username = decodeURIComponent(username);
+        password = decodeURIComponent(password);
+      } catch (e) {
+        // 解码失败，说明可能包含特殊字符但未编码，直接使用
+      }
+      
+      // 对用户名和密码进行编码
+      const encodedUsername = encodeURIComponent(username);
+      const encodedPassword = encodeURIComponent(password);
+      
+      // 重新构建 URL
+      url.username = encodedUsername;
+      url.password = encodedPassword;
+      return url.toString();
+    }
+    
+    // 如果没有用户名和密码，直接返回
+    return proxyUrl;
+  } catch (error) {
+    // 如果 URL 解析失败（可能因为特殊字符），尝试手动处理
+    // 匹配格式：protocol://username:password@host:port
+    const match = proxyUrl.match(/^([^:]+):\/\/(?:([^:@]+):([^@]+)@)?([^:]+)(?::(\d+))?/);
+    if (match) {
+      const [, protocol, username, password, host, port] = match;
+      if (username && password) {
+        // 对用户名和密码进行编码
+        const encodedUsername = encodeURIComponent(username);
+        const encodedPassword = encodeURIComponent(password);
+        const portPart = port ? `:${port}` : '';
+        return `${protocol}://${encodedUsername}:${encodedPassword}@${host}${portPart}`;
+      }
+    }
+    
+    // 如果无法解析，返回原 URL（让代理库处理）
+    console.warn('Failed to parse proxy URL, using as-is:', proxyUrl);
+    return proxyUrl;
+  }
+}
 
 /**
  * Agent基类
@@ -30,20 +90,24 @@ class Agent {
     
     if (isHttps && this.settings.httpsProxy) {
       // HTTPS 请求使用 httpsProxy
-      config.httpsAgent = new HttpsProxyAgent(this.settings.httpsProxy);
-      console.log(`[${this.name}] Using HTTPS proxy:`, this.settings.httpsProxy.replace(/:[^:@]*@/, ':****@')); // 隐藏密码
+      const encodedProxy = encodeProxyUrl(this.settings.httpsProxy);
+      config.httpsAgent = new HttpsProxyAgent(encodedProxy);
+      console.log(`[${this.name}] Using HTTPS proxy:`, encodedProxy.replace(/:[^:@]*@/, ':****@')); // 隐藏密码
     } else if (isHttps && this.settings.httpProxy) {
       // HTTPS 请求但只配置了 httpProxy，也使用它
-      config.httpsAgent = new HttpsProxyAgent(this.settings.httpProxy);
-      console.log(`[${this.name}] Using HTTP proxy for HTTPS request:`, this.settings.httpProxy.replace(/:[^:@]*@/, ':****@')); // 隐藏密码
+      const encodedProxy = encodeProxyUrl(this.settings.httpProxy);
+      config.httpsAgent = new HttpsProxyAgent(encodedProxy);
+      console.log(`[${this.name}] Using HTTP proxy for HTTPS request:`, encodedProxy.replace(/:[^:@]*@/, ':****@')); // 隐藏密码
     } else if (!isHttps && this.settings.httpProxy) {
       // HTTP 请求使用 httpProxy
-      config.httpAgent = new HttpProxyAgent(this.settings.httpProxy);
-      console.log(`[${this.name}] Using HTTP proxy:`, this.settings.httpProxy.replace(/:[^:@]*@/, ':****@')); // 隐藏密码
+      const encodedProxy = encodeProxyUrl(this.settings.httpProxy);
+      config.httpAgent = new HttpProxyAgent(encodedProxy);
+      console.log(`[${this.name}] Using HTTP proxy:`, encodedProxy.replace(/:[^:@]*@/, ':****@')); // 隐藏密码
     } else if (!isHttps && this.settings.httpsProxy) {
       // HTTP 请求但只配置了 httpsProxy，也使用它
-      config.httpAgent = new HttpProxyAgent(this.settings.httpsProxy);
-      console.log(`[${this.name}] Using HTTPS proxy for HTTP request:`, this.settings.httpsProxy.replace(/:[^:@]*@/, ':****@')); // 隐藏密码
+      const encodedProxy = encodeProxyUrl(this.settings.httpsProxy);
+      config.httpAgent = new HttpProxyAgent(encodedProxy);
+      console.log(`[${this.name}] Using HTTPS proxy for HTTP request:`, encodedProxy.replace(/:[^:@]*@/, ':****@')); // 隐藏密码
     }
 
     return config;
