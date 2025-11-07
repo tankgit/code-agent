@@ -46,15 +46,111 @@ function renderModelDropdown(filterText = '') {
   dropdown.style.display = 'block';
 }
 
+/**
+ * 解析代理 URL，分离出地址、用户名和密码
+ * @param {string} proxyUrl - 代理 URL
+ * @returns {object} - { address, username, password }
+ */
+function parseProxyUrl(proxyUrl) {
+  if (!proxyUrl) {
+    return { address: '', username: '', password: '' };
+  }
+  
+  try {
+    const url = new URL(proxyUrl);
+    const address = `${url.protocol}//${url.hostname}${url.port ? ':' + url.port : ''}`;
+    const username = url.username || '';
+    const password = url.password || '';
+    
+    // 如果用户名或密码已编码，尝试解码
+    let decodedUsername = username;
+    let decodedPassword = password;
+    try {
+      if (username) decodedUsername = decodeURIComponent(username);
+      if (password) decodedPassword = decodeURIComponent(password);
+    } catch (e) {
+      // 解码失败，使用原值
+    }
+    
+    return { address, username: decodedUsername, password: decodedPassword };
+  } catch (error) {
+    // 如果 URL 解析失败，尝试正则匹配
+    const match = proxyUrl.match(/^([^:]+):\/\/(?:([^:@]+):([^@]+)@)?([^:]+)(?::(\d+))?/);
+    if (match) {
+      const [, protocol, username, password, host, port] = match;
+      const address = `${protocol}://${host}${port ? ':' + port : ''}`;
+      let decodedUsername = username || '';
+      let decodedPassword = password || '';
+      
+      try {
+        if (username) decodedUsername = decodeURIComponent(username);
+        if (password) decodedPassword = decodeURIComponent(password);
+      } catch (e) {
+        // 解码失败，使用原值
+      }
+      
+      return { address, username: decodedUsername, password: decodedPassword };
+    }
+    
+    // 如果无法解析，假设整个字符串是地址
+    return { address: proxyUrl, username: '', password: '' };
+  }
+}
+
+/**
+ * 组合代理 URL
+ * @param {string} address - 代理地址
+ * @param {string} username - 用户名
+ * @param {string} password - 密码
+ * @returns {string} - 组合后的代理 URL
+ */
+function buildProxyUrl(address, username, password) {
+  if (!address) return '';
+  
+  if (username || password) {
+    const encodedUsername = username ? encodeURIComponent(username) : '';
+    const encodedPassword = password ? encodeURIComponent(password) : '';
+    try {
+      const url = new URL(address);
+      url.username = encodedUsername;
+      url.password = encodedPassword;
+      return url.toString();
+    } catch (error) {
+      // 如果 URL 解析失败，手动组合
+      // 格式：protocol://encodedUsername:encodedPassword@host:port
+      const match = address.match(/^([^:]+):\/\/([^:]+)(?::(\d+))?/);
+      if (match) {
+        const [, protocol, host, port] = match;
+        const portPart = port ? `:${port}` : '';
+        return `${protocol}://${encodedUsername}:${encodedPassword}@${host}${portPart}`;
+      }
+      // 如果无法解析，直接返回地址（不添加认证信息）
+      return address;
+    }
+  }
+  
+  return address;
+}
+
 async function loadSettings() {
   settings = await window.electronAPI.getSettings();
   
   document.getElementById('apiKey').value = settings.apiKey || '';
   document.getElementById('apiUrl').value = settings.apiUrl || 'https://api.openai.com/v1';
-  document.getElementById('httpProxy').value = settings.httpProxy || '';
-  document.getElementById('httpsProxy').value = settings.httpsProxy || '';
   document.getElementById('noProxy').value = settings.noProxy || '';
   document.getElementById('maxContextLength').value = settings.maxContextLength || 16384;
+  
+  // 解析 HTTP Proxy
+  const httpProxy = parseProxyUrl(settings.httpProxy || '');
+  document.getElementById('httpProxy').value = httpProxy.address;
+  document.getElementById('httpProxyUsername').value = httpProxy.username;
+  document.getElementById('httpProxyPassword').value = httpProxy.password;
+  
+  // 解析 HTTPS Proxy
+  const httpsProxy = parseProxyUrl(settings.httpsProxy || '');
+  document.getElementById('httpsProxy').value = httpsProxy.address;
+  document.getElementById('httpsProxyUsername').value = httpsProxy.username;
+  document.getElementById('httpsProxyPassword').value = httpsProxy.password;
   
   const modelInput = getModelInput();
   if (modelInput && settings.model) {
@@ -110,12 +206,24 @@ async function closeWindow() {
 }
 
 function getCurrentSettings() {
+  // 组合 HTTP Proxy URL
+  const httpProxyAddress = document.getElementById('httpProxy').value.trim();
+  const httpProxyUsername = document.getElementById('httpProxyUsername').value.trim();
+  const httpProxyPassword = document.getElementById('httpProxyPassword').value;
+  const httpProxy = buildProxyUrl(httpProxyAddress, httpProxyUsername, httpProxyPassword);
+  
+  // 组合 HTTPS Proxy URL
+  const httpsProxyAddress = document.getElementById('httpsProxy').value.trim();
+  const httpsProxyUsername = document.getElementById('httpsProxyUsername').value.trim();
+  const httpsProxyPassword = document.getElementById('httpsProxyPassword').value;
+  const httpsProxy = buildProxyUrl(httpsProxyAddress, httpsProxyUsername, httpsProxyPassword);
+  
   const baseSettings = {
     apiKey: document.getElementById('apiKey').value,
     apiUrl: document.getElementById('apiUrl').value,
     model: getModelInput().value,
-    httpProxy: document.getElementById('httpProxy').value,
-    httpsProxy: document.getElementById('httpsProxy').value,
+    httpProxy: httpProxy,
+    httpsProxy: httpsProxy,
     noProxy: document.getElementById('noProxy').value,
     maxContextLength: parseInt(document.getElementById('maxContextLength').value) || 16384
   };
@@ -496,7 +604,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   // 为所有输入框添加实时保存
   document.getElementById('apiKey').addEventListener('input', saveSettingsDebounced);
   document.getElementById('httpProxy').addEventListener('input', saveSettingsDebounced);
+  document.getElementById('httpProxyUsername').addEventListener('input', saveSettingsDebounced);
+  document.getElementById('httpProxyPassword').addEventListener('input', saveSettingsDebounced);
   document.getElementById('httpsProxy').addEventListener('input', saveSettingsDebounced);
+  document.getElementById('httpsProxyUsername').addEventListener('input', saveSettingsDebounced);
+  document.getElementById('httpsProxyPassword').addEventListener('input', saveSettingsDebounced);
   document.getElementById('noProxy').addEventListener('input', saveSettingsDebounced);
   document.getElementById('maxContextLength').addEventListener('input', saveSettingsDebounced);
   document.getElementById('maxContextLength').addEventListener('change', saveSettingsDebounced);

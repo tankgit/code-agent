@@ -746,16 +746,26 @@
 
     <!-- 代理设置 -->
     <div class="settings-section" id="proxySection">
+      <!-- HTTP Proxy 设置 -->
       <div class="settings-group">
         <label class="settings-label">HTTP Proxy</label>
-        <input type="text" id="httpProxy" class="settings-input" placeholder="http://proxy.example.com:8080 或 http://username:password@proxy.example.com:8080">
-        <div class="settings-hint">支持带认证的代理，格式：http://username:password@proxy_address:port</div>
+        <input type="text" id="httpProxy" class="settings-input" placeholder="http://proxy.example.com:8080">
+        <div class="settings-hint" style="margin-top: 8px;">代理认证信息（可选）</div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 8px;">
+          <input type="text" id="httpProxyUsername" class="settings-input" placeholder="用户名（可选）">
+          <input type="password" id="httpProxyPassword" class="settings-input" placeholder="密码（可选）">
+        </div>
       </div>
 
+      <!-- HTTPS Proxy 设置 -->
       <div class="settings-group">
         <label class="settings-label">HTTPS Proxy</label>
-        <input type="text" id="httpsProxy" class="settings-input" placeholder="https://proxy.example.com:8080 或 http://username:password@proxy.example.com:8080">
-        <div class="settings-hint">支持带认证的代理，格式：http://username:password@proxy_address:port</div>
+        <input type="text" id="httpsProxy" class="settings-input" placeholder="http://proxy.example.com:8080">
+        <div class="settings-hint" style="margin-top: 8px;">代理认证信息（可选）</div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 8px;">
+          <input type="text" id="httpsProxyUsername" class="settings-input" placeholder="用户名（可选）">
+          <input type="password" id="httpsProxyPassword" class="settings-input" placeholder="密码（可选）">
+        </div>
       </div>
 
       <div class="settings-group">
