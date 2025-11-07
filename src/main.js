@@ -280,20 +280,15 @@ ipcMain.handle('get-models', async (event) => {
 
   try {
     const axios = require('axios');
-    const https = require('https');
-    const http = require('http');
     
-    // 配置代理
+    // 配置代理 - 使用 axios 的 proxy 配置，支持带认证的代理格式
+    // 格式：http://username:password@proxy_address:port
+    // 对于 HTTPS 请求，优先使用 httpsProxy，否则使用 httpProxy
     const proxyConfig = {};
     if (httpsProxy) {
-      proxyConfig.httpsAgent = new https.Agent({
-        proxy: httpsProxy
-      });
-    }
-    if (httpProxy) {
-      proxyConfig.httpAgent = new http.Agent({
-        proxy: httpProxy
-      });
+      proxyConfig.proxy = httpsProxy;
+    } else if (httpProxy) {
+      proxyConfig.proxy = httpProxy;
     }
 
     const url = `${apiUrl}/models`;

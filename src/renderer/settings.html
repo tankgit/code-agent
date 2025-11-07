@@ -748,17 +748,20 @@
     <div class="settings-section" id="proxySection">
       <div class="settings-group">
         <label class="settings-label">HTTP Proxy</label>
-        <input type="text" id="httpProxy" class="settings-input" placeholder="http://proxy.example.com:8080">
+        <input type="text" id="httpProxy" class="settings-input" placeholder="http://proxy.example.com:8080 或 http://username:password@proxy.example.com:8080">
+        <div class="settings-hint">支持带认证的代理，格式：http://username:password@proxy_address:port</div>
       </div>
 
       <div class="settings-group">
         <label class="settings-label">HTTPS Proxy</label>
-        <input type="text" id="httpsProxy" class="settings-input" placeholder="https://proxy.example.com:8080">
+        <input type="text" id="httpsProxy" class="settings-input" placeholder="https://proxy.example.com:8080 或 http://username:password@proxy.example.com:8080">
+        <div class="settings-hint">支持带认证的代理，格式：http://username:password@proxy_address:port</div>
       </div>
 
       <div class="settings-group">
         <label class="settings-label">No Proxy</label>
         <input type="text" id="noProxy" class="settings-input" placeholder="localhost,127.0.0.1">
+        <div class="settings-hint">不使用代理的主机列表，用逗号分隔</div>
       </div>
     </div>
 

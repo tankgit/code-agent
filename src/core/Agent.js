@@ -1,6 +1,4 @@
 const axios = require('axios');
-const https = require('https');
-const http = require('http');
 
 /**
  * Agent基类
@@ -23,16 +21,13 @@ class Agent {
       }
     };
 
-    // 配置代理
+    // 配置代理 - 使用 axios 的 proxy 配置，支持带认证的代理格式
+    // 格式：http://username:password@proxy_address:port
+    // 对于 HTTPS 请求，优先使用 httpsProxy，否则使用 httpProxy
     if (this.settings.httpsProxy) {
-      config.httpsAgent = new https.Agent({
-        proxy: this.settings.httpsProxy
-      });
-    }
-    if (this.settings.httpProxy) {
-      config.httpAgent = new http.Agent({
-        proxy: this.settings.httpProxy
-      });
+      config.proxy = this.settings.httpsProxy;
+    } else if (this.settings.httpProxy) {
+      config.proxy = this.settings.httpProxy;
     }
 
     return config;

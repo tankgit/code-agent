@@ -1109,10 +1109,25 @@ function addMessage(role, content, toolCalls = null) {
     const messageContainer = document.createElement('div');
     messageContainer.className = 'message-container';
     
-    // 对于已保存的消息，我们按照工具调用在前、内容在后的顺序显示
-    // （因为保存时可能没有保存顺序信息）
+    // 对于已保存的消息，我们按照先文字后工具的顺序显示
     // 但工具调用和内容都直接添加到 message-container 中，不再使用单独的容器
     
+    // 先添加内容片段（如果有内容）
+    if (content && content.trim()) {
+      const contentFragment = document.createElement('div');
+      contentFragment.className = 'message-content-text';
+      
+      if (typeof window.marked !== 'undefined' && window.marked.parse) {
+        contentFragment.innerHTML = window.marked.parse(content);
+      } else {
+        contentFragment.textContent = content;
+      }
+      
+      // 直接添加到容器中（在工具调用之前）
+      messageContainer.appendChild(contentFragment);
+    }
+    
+    // 然后添加工具调用（如果有）
     if (toolCalls && Array.isArray(toolCalls) && toolCalls.length > 0) {
       toolCalls.forEach(toolCall => {
         const toolCallDiv = document.createElement('div');
@@ -1163,24 +1178,9 @@ function addMessage(role, content, toolCalls = null) {
           showToolCallModal(toolCall.id);
         });
         
-        // 直接添加到容器中（按顺序）
+        // 直接添加到容器中（在内容之后）
         messageContainer.appendChild(toolCallDiv);
       });
-    }
-    
-    // 如果有内容，添加内容片段（使用与流式显示相同的类名）
-    if (content && content.trim()) {
-      const contentFragment = document.createElement('div');
-      contentFragment.className = 'message-content-text';
-      
-      if (typeof window.marked !== 'undefined' && window.marked.parse) {
-        contentFragment.innerHTML = window.marked.parse(content);
-      } else {
-        contentFragment.textContent = content;
-      }
-      
-      // 直接添加到容器中（在工具调用之后）
-      messageContainer.appendChild(contentFragment);
     }
     
     text.appendChild(messageContainer);
@@ -1395,7 +1395,8 @@ async function sendMessage() {
     container: messageContainer,  // 统一容器
     content: '',  // 累积的内容（用于过滤）
     activeContentFragment: null,  // 当前活跃的内容片段（可能为null，用于流式追加）
-    contentFragments: []  // 所有内容片段列表（用于过滤）
+    contentFragments: [],  // 所有内容片段列表（用于过滤）
+    fragmentStartIndex: 0  // 当前内容片段在累积内容中的起始位置
   };
   currentToolCallsData = []; // 重置工具调用数据
   currentToolCalls.clear(); // 清空工具调用Map
@@ -1587,6 +1588,7 @@ case 'todo_complete':
         updateStatusBar('executing_in_progress', '正在执行...');
       }
       if (currentMessage) {
+        const previousContentLength = currentMessage.content.length;
         currentMessage.content += chunk.content;
         console.log('[Renderer] Updated content, new length:', currentMessage.content.length);
         
@@ -1606,14 +1608,17 @@ case 'todo_complete':
           container.appendChild(contentFragment);
           currentMessage.activeContentFragment = contentFragment;
           currentMessage.contentFragments.push(contentFragment);
+          // 记录新片段的起始位置
+          currentMessage.fragmentStartIndex = previousContentLength;
         }
         
-        // 过滤工具结果内容：移除看起来像是工具结果 JSON 的内容
-        // 注意：这里只过滤当前内容片段对应的内容，而不是全部内容
-        // 为了简化，我们仍然过滤全部内容，但只更新当前片段
-        let filteredContent = filterToolResultFromContent(currentMessage.content, currentToolCallsData);
+        // 只获取当前片段对应的内容（从片段起始位置到当前累积内容的末尾）
+        const fragmentContent = currentMessage.content.substring(currentMessage.fragmentStartIndex);
         
-        // 更新内容片段内容
+        // 过滤工具结果内容：只过滤当前片段的内容
+        let filteredContent = filterToolResultFromContent(fragmentContent, currentToolCallsData);
+        
+        // 更新内容片段内容（只显示当前片段的内容，不重复显示之前的内容）
         if (typeof window.marked !== 'undefined' && window.marked.parse) {
           contentFragment.innerHTML = window.marked.parse(filteredContent);
         } else {

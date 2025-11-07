@@ -206,14 +206,9 @@ function loadAgentSettings(agentSettings, defaultModel) {
       }
     }
     
+    const checkbox = document.getElementById(config.checkbox);
+    
     if (agentSetting && agentSetting.enabled) {
-      // 启用自定义模型
-      const checkbox = document.getElementById(config.checkbox);
-      if (checkbox) {
-        checkbox.checked = true;
-        toggleAgentConfig(agentKey, true);
-      }
-      
       // 加载设置值
       const apiUrlInput = document.getElementById(config.apiUrl);
       const apiKeyInput = document.getElementById(config.apiKey);
@@ -221,6 +216,11 @@ function loadAgentSettings(agentSettings, defaultModel) {
       
       if (agentSetting.useCustom) {
         // 使用自定义输入（api_url, api_key, model_name）
+        if (checkbox) {
+          checkbox.checked = true;
+          toggleAgentConfig(agentKey, true);
+        }
+        
         if (apiUrlInput) apiUrlInput.value = agentSetting.apiUrl || '';
         if (apiKeyInput) apiKeyInput.value = agentSetting.apiKey || '';
         if (modelNameInput) modelNameInput.value = agentSetting.model || '';
@@ -228,7 +228,12 @@ function loadAgentSettings(agentSettings, defaultModel) {
         // 显示自定义输入框，隐藏下拉框
         showCustomInputs(agentKey);
       } else {
-        // 使用下拉框选择模型（使用默认的apiKey和apiUrl）
+        // 使用下拉框选择模型（使用默认的apiKey和apiUrl），不勾选复选框
+        if (checkbox) {
+          checkbox.checked = false;
+          toggleAgentConfig(agentKey, false);
+        }
+        
         if (modelInput && agentSetting.model) {
           modelInput.value = agentSetting.model;
         }
@@ -238,7 +243,6 @@ function loadAgentSettings(agentSettings, defaultModel) {
       }
     } else {
       // 未启用自定义模型，但可能使用了下拉框选择模型
-      const checkbox = document.getElementById(config.checkbox);
       if (checkbox) {
         checkbox.checked = false;
         toggleAgentConfig(agentKey, false);
